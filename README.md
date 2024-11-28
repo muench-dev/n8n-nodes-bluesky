@@ -7,7 +7,7 @@ This repository contains the code for the n8n nodes that interact with the [Blue
 ## Installation
 
 ```bash
-npm install @muench-dev/n8n-nodes-bluesky
+pnpm install @muench-dev/n8n-nodes-bluesky
 ```
 
 In n8n community edition, you can install the nodes in the settings page.
@@ -17,3 +17,6 @@ In n8n community edition, you can install the nodes in the settings page.
 - List last 10 feed items of Author Feed
 - Post
 
+## Screenshots
+
+![images](.github/images/screenshot_20241128_174932.png)
