@@ -7,6 +7,8 @@ import {
 
 import { AppBskyFeedGetAuthorFeed, AppBskyFeedPost, AtpAgent, CredentialSession } from '@atproto/api';
 import { FeedViewPost } from '@atproto/api/dist/client/types/app/bsky/feed/defs';
+import { RichText } from '@atproto/api'
+import { getLanguageOptions} from './languages';
 
 export class Bluesky implements INodeType {
 	description: INodeTypeDescription = {
@@ -61,19 +63,11 @@ export class Bluesky implements INodeType {
 				},
 			},
 			{
-				displayName: 'Languages',
+				displayName: 'Language Names or IDs',
 				name: 'langs',
 				type: 'multiOptions',
-				options: [
-					{
-						name: 'English',
-						value: 'en',
-					},
-					{
-						name: 'German',
-						value: 'de',
-					}
-				],
+				description: 'Choose from the list of supported languages. Choose from the list, or specify IDs using an <a href="https://docs.n8n.io/code-examples/expressions/">expression</a>.',
+				options: getLanguageOptions(),
 				default: ['en'],
 				displayOptions: {
 					show: {
@@ -127,9 +121,17 @@ export class Bluesky implements INodeType {
 			}
 
 			if (operation === 'post') {
-				let postData = {
+
+				let rt = new RichText({
 					text: this.getNodeParameter('postText', i) as string,
+				})
+
+				await rt.detectFacets(agent)
+
+				let postData = {
+					text: rt.text,
 					langs: this.getNodeParameter('langs', i) as string[],
+					facets: rt.facets,
 				} as AppBskyFeedPost.Record & Omit<AppBskyFeedPost.Record, 'createdAt'>
 
 				const postResponse: { uri: string; cid: string } = await agent.post(postData)
