@@ -11,9 +11,6 @@ importers:
       '@atproto/api':
         specifier: ^0.13.18
         version: 0.13.18
-      '@atproto/oauth-client':
-        specifier: ^0.3.1
-        version: 0.3.1
       '@atproto/oauth-client-node':
         specifier: ^0.2.1
         version: 0.2.1
@@ -9316,7 +9313,7 @@ snapshots:
       jsbi: 4.3.0
       native-duplexpair: 1.0.0
       node-abort-controller: 3.1.1
-      punycode: 2.1.1
+      punycode: 2.3.1
       sprintf-js: 1.1.3
     transitivePeerDependencies:
       - supports-color
@@ -9402,7 +9399,7 @@ snapshots:
 
   tr46@3.0.0:
     dependencies:
-      punycode: 2.1.1
+      punycode: 2.3.1
 
   transliteration@2.3.5:
     dependencies:

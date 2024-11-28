@@ -1,15 +1,15 @@
 {
   "name": "@muench-dev/n8n-nodes-bluesky",
   "version": "0.1.0",
-  "description": "",
+  "description": "BlueSky API nodes for n8n",
   "keywords": [
     "n8n-community-node-package"
   ],
   "license": "MIT",
   "homepage": "",
   "author": {
-    "name": "",
-    "email": ""
+    "name": "Christian Münch",
+    "email": "christian@muench.dev"
   },
   "repository": {
     "type": "git",
@@ -36,7 +36,7 @@
   "n8n": {
     "n8nNodesApiVersion": 1,
     "credentials": [
-      "dist/credentials/BlueskyOAuthApi.credentials.js"
+      "dist/credentials/BlueskyApi.credentials.js"
     ],
     "nodes": [
       "dist/nodes/Bluesky/Bluesky.node.js"
@@ -56,7 +56,6 @@
   },
   "dependencies": {
     "@atproto/api": "^0.13.18",
-    "@atproto/oauth-client-node": "^0.2.1",
     "n8n-core": "^1.14.1"
   }
 }

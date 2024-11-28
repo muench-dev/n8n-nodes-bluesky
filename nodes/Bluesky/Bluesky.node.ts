@@ -1,11 +1,12 @@
 import {
-	IExecuteFunctions,
 	INodeExecutionData,
+	IExecuteFunctions,
 	INodeType,
 	INodeTypeDescription,
 } from 'n8n-workflow';
-import { Agent } from '@atproto/api';
-import { NodeOAuthClient, OAuthClient } from '@atproto/oauth-client-node';
+
+import { AppBskyFeedGetAuthorFeed, AppBskyFeedPost, AtpAgent, CredentialSession } from '@atproto/api';
+import { FeedViewPost } from '@atproto/api/dist/client/types/app/bsky/feed/defs';
 
 export class Bluesky implements INodeType {
 	description: INodeTypeDescription = {
@@ -22,7 +23,7 @@ export class Bluesky implements INodeType {
 		outputs: ['main'],
 		credentials: [
 			{
-				name: 'blueskyOAuthApi',
+				name: 'blueskyApi',
 				required: true,
 			},
 		],
@@ -34,23 +35,52 @@ export class Bluesky implements INodeType {
 				noDataExpression: true,
 				options: [
 					{
-						name: 'Post Update',
-						value: 'postUpdate',
+						name: 'Get Author Feed',
+						value: 'getAuthorFeed',
+						description: 'Retrieve user feed',
+						action: 'Retrieve user feed',
+					},
+					{
+						name: 'Create a Post',
+						value: 'post',
+						description: 'Create a new post',
+						action: 'Post a status update to bluesky',
 					},
 				],
-				default: 'postUpdate',
+				default: 'post',
 			},
 			{
-				displayName: 'Status Text',
-				name: 'statusText',
+				displayName: 'Post Text',
+				name: 'postText',
 				type: 'string',
 				default: '',
 				displayOptions: {
 					show: {
-						operation: ['postUpdate'],
+						operation: ['post'],
 					},
 				},
 			},
+			{
+				displayName: 'Languages',
+				name: 'langs',
+				type: 'multiOptions',
+				options: [
+					{
+						name: 'English',
+						value: 'en',
+					},
+					{
+						name: 'German',
+						value: 'de',
+					}
+				],
+				default: ['en'],
+				displayOptions: {
+					show: {
+						operation: ['post'],
+					},
+				},
+			}
 		],
 	};
 
@@ -59,42 +89,57 @@ export class Bluesky implements INodeType {
 		const returnData: INodeExecutionData[] = [];
 
 		// Load credentials
-		const credentials = await this.getCredentials('blueskyOAuthApi') as {
-			clientId: string;
-			clientSecret: string;
-			redirectUri: string;
-			sessionId: string; // Replace or adapt based on how you store/restoration session
+		const credentials = await this.getCredentials('blueskyApi') as {
+			identifier: string;
+			appPassword: string;
+			serviceUrl: string;
 		};
 
 		const operation = this.getNodeParameter('operation', 0) as string;
+		const serviceUrl = new URL(credentials.serviceUrl.replace(/\/+$/, '')); // Ensure no trailing slash
 
-		// Instantiate OAuthClient
-		const oauthClient = new NodeOAuthClient({
-			clientMetadata: {
-				client_id: credentials.clientId,
-			}
-			clientSecret: credentials.clientSecret,
-			redirectUri: credentials.redirectUri,
-		});
 
-		// Restore OAuth session
-		const oauthSession = await oauthClient.restore(credentials.sessionId);
-
-		// Instantiate the API Agent
-		const agent = new Agent(oauthSession);
+		const session = new CredentialSession(serviceUrl)
+		const agent = new AtpAgent(session)
+		await agent.login({
+			identifier: credentials.identifier,
+			password: credentials.appPassword
+		})
 
 		for (let i = 0; i < items.length; i++) {
-			if (operation === 'postUpdate') {
-				const statusText = this.getNodeParameter('statusText', i) as string;
 
-				// Post an update using the Agent
-				const record = {
-					text: statusText,
-				};
+			if (operation === 'getAuthorFeed') {
+				const authorFeedResponse: AppBskyFeedGetAuthorFeed.Response = await agent.getAuthorFeed({
+					actor: credentials.identifier,
+					limit: 10,
+				})
 
-				const result = await agent.post(record);
+				authorFeedResponse.data.feed.forEach((feedPost: FeedViewPost) => {
+					returnData.push({
+						json: {
+							post: feedPost.post,
+							reply: feedPost.reply,
+							reason: feedPost.reason,
+							feedContext: feedPost.feedContext,
+						}
+					});
+				})
+			}
 
-				returnData.push({ json: result });
+			if (operation === 'post') {
+				let postData = {
+					text: this.getNodeParameter('postText', i) as string,
+					langs: this.getNodeParameter('langs', i) as string[],
+				} as AppBskyFeedPost.Record & Omit<AppBskyFeedPost.Record, 'createdAt'>
+
+				const postResponse: { uri: string; cid: string } = await agent.post(postData)
+
+				returnData.push({
+					json: {
+						uri: postResponse.uri,
+						cid: postResponse.cid,
+					}
+				});
 			}
 		}
 
