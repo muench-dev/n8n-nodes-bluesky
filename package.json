@@ -6,7 +6,7 @@
     "n8n-community-node-package"
   ],
   "license": "MIT",
-  "homepage": "",
+  "homepage": "https://github.com/muench-dev/n8n-nodes-bluesky#readme",
   "author": {
     "name": "Christian Münch",
     "email": "christian@muench.dev"
