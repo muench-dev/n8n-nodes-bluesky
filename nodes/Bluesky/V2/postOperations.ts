@@ -8,6 +8,11 @@ export const postProperties: INodeProperties[] = [
 		name: 'operation',
 		type: 'options',
 		noDataExpression: true,
+		displayOptions: {
+			show: {
+				resource: ['post'],
+			},
+		},
 		options: [
 			{
 				name: 'Create a Post',
@@ -16,11 +21,6 @@ export const postProperties: INodeProperties[] = [
 				action: 'Post a status update to bluesky',
 			},
 		],
-		displayOptions: {
-			show: {
-				resource: ['post'],
-			},
-		},
 		default: 'post',
 	},
 	{
@@ -44,6 +44,7 @@ export const postProperties: INodeProperties[] = [
 		default: ['en'],
 		displayOptions: {
 			show: {
+				resource: ['post'],
 				operation: ['post'],
 			},
 		},

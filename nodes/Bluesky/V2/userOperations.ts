@@ -7,6 +7,11 @@ export const userProperties: INodeProperties[] = [
 		name: 'operation',
 		type: 'options',
 		noDataExpression: true,
+		displayOptions: {
+			show: {
+				resource: ['user'],
+			},
+		},
 		options: [
 			{
 				name: 'Get Profile',
@@ -27,11 +32,6 @@ export const userProperties: INodeProperties[] = [
 				action: 'Un mute a user',
 			},
 		],
-		displayOptions: {
-			show: {
-				resource: ['user'],
-			},
-		},
 		default: 'getProfile',
 	},
 	{
@@ -88,7 +88,7 @@ export async function unmuteOperation(agent: AtpAgent, did: string): Promise<INo
 	return returnData;
 }
 
-export async function userOperations(agent: AtpAgent, actor: string): Promise<INodeExecutionData[]> {
+export async function getProfileOperation(agent: AtpAgent, actor: string): Promise<INodeExecutionData[]> {
 	const returnData: INodeExecutionData[] = [];
 	const profileResponse: AppBskyActorGetProfile.Response = await agent.getProfile({
 		actor: actor,
