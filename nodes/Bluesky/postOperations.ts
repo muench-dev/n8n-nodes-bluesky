@@ -2,7 +2,27 @@ import { AppBskyFeedPost, AtpAgent, RichText } from '@atproto/api';
 import { INodeExecutionData, INodeProperties } from 'n8n-workflow';
 import { getLanguageOptions } from './languages';
 
-export const postOperationProperties: INodeProperties[] = [
+export const postProperties: INodeProperties[] = [
+	{
+		displayName: 'Operation',
+		name: 'operation',
+		type: 'options',
+		noDataExpression: true,
+		options: [
+			{
+				name: 'Create a Post',
+				value: 'post',
+				description: 'Create a new post',
+				action: 'Post a status update to bluesky',
+			},
+		],
+		displayOptions: {
+			show: {
+				resource: ['post'],
+			},
+		},
+		default: 'post',
+	},
 	{
 		displayName: 'Post Text',
 		name: 'postText',
@@ -10,6 +30,7 @@ export const postOperationProperties: INodeProperties[] = [
 		default: '',
 		displayOptions: {
 			show: {
+				resource: ['post'],
 				operation: ['post'],
 			},
 		},
@@ -29,7 +50,7 @@ export const postOperationProperties: INodeProperties[] = [
 	},
 ];
 
-export async function postDescription(agent: AtpAgent, postText: string, langs: string[]): Promise<INodeExecutionData[]> {
+export async function postOperations(agent: AtpAgent, postText: string, langs: string[]): Promise<INodeExecutionData[]> {
 	const returnData: INodeExecutionData[] = [];
 	let rt = new RichText({
 		text: postText,
