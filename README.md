@@ -14,8 +14,15 @@ In n8n community edition, you can install the nodes in the settings page.
 
 ## Features
 
-- List last 10 feed items of Author Feed
+- User
+	- Get Profile
+  - Mute User
+  - Un-mute User
+- Feed
+	- Get Author Feed
+	- Get Timeline of current user
 - Post
+	- Create Post
 
 ## Screenshots
 
