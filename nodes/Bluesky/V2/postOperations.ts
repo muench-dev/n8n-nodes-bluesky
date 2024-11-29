@@ -20,6 +20,21 @@ export const postProperties: INodeProperties[] = [
 				description: 'Create a new post',
 				action: 'Post a status update to bluesky',
 			},
+			{
+				name: 'Like a Post',
+				value: 'like',
+				action: 'Like a post',
+			},
+			{
+				name: 'Unline a Post',
+				value: 'deleteLike',
+				action: 'Unlike a post',
+			},
+			{
+				name: 'Repost a Post',
+				value: 'repost',
+				action: 'Unlike a post',
+			}
 		],
 		default: 'post',
 	},
@@ -49,9 +64,37 @@ export const postProperties: INodeProperties[] = [
 			},
 		},
 	},
+	{
+		displayName: 'Uri',
+		name: 'uri',
+		type: 'string',
+		description: 'The URI of the post',
+		default: '',
+		required: true,
+		displayOptions: {
+			show: {
+				resource: ['post'],
+				operation: ['like', 'deleteLike', 'repost'],
+			},
+		},
+	},
+	{
+		displayName: 'Cid',
+		name: 'cid',
+		type: 'string',
+		description: 'The CID of the post',
+		default: '',
+		required: true,
+		displayOptions: {
+			show: {
+				resource: ['post'],
+				operation: ['like', 'repost'],
+			},
+		},
+	}
 ];
 
-export async function postOperations(agent: AtpAgent, postText: string, langs: string[]): Promise<INodeExecutionData[]> {
+export async function postOperation(agent: AtpAgent, postText: string, langs: string[]): Promise<INodeExecutionData[]> {
 	const returnData: INodeExecutionData[] = [];
 	let rt = new RichText({
 		text: postText,
@@ -73,5 +116,53 @@ export async function postOperations(agent: AtpAgent, postText: string, langs: s
 			cid: postResponse.cid,
 		},
 	});
+	return returnData;
+}
+
+export async function likeOperation(agent: AtpAgent, uri: string, cid: string): Promise<INodeExecutionData[]> {
+	const returnData: INodeExecutionData[] = [];
+
+	// https://docs.bsky.app/docs/tutorials/like-repost#liking-a-post
+	const likeResponse:{ uri: string; cid: string } = await agent.like(uri, cid);
+
+	returnData.push({
+		json: {
+			uri: likeResponse.uri,
+			cid: likeResponse.cid,
+		},
+	})
+
+	return returnData;
+}
+
+export async function deleteLikeOperation(agent: AtpAgent, uri: string): Promise<INodeExecutionData[]> {
+	const returnData: INodeExecutionData[] = [];
+
+	// no response from deleteLike
+	// https://docs.bsky.app/docs/tutorials/like-repost#unliking-a-post
+	await agent.deleteLike(uri);
+
+	returnData.push({
+		json: {
+			uri: uri,
+		},
+	});
+
+	return returnData;
+}
+
+export async function repostOperation(agent: AtpAgent, uri: string, cid: string): Promise<INodeExecutionData[]> {
+	const returnData: INodeExecutionData[] = [];
+
+	// https://docs.bsky.app/docs/tutorials/like-repost#quote-reposting
+	const repostResult:{ uri: string; cid: string } = await agent.repost(uri, cid);
+
+	returnData.push({
+		json: {
+			uri: repostResult.uri,
+			cid: repostResult.cid,
+		},
+	});
+
 	return returnData;
 }

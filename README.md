@@ -23,6 +23,9 @@ In n8n community edition, you can install the nodes in the settings page.
 	- Get Timeline of current user
 - Post
 	- Create Post
+  - Like
+  - Unlike
+  - Repost
 
 ## Screenshots
 

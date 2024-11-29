@@ -10,7 +10,7 @@ import { AtpAgent, CredentialSession } from '@atproto/api';
 import { resourcesProperty } from './resources';
 
 // Operations
-import { postOperations, postProperties } from './postOperations';
+import { deleteLikeOperation, likeOperation, postOperation, postProperties } from './postOperations';
 import { getProfileOperation, muteOperation, userProperties, unmuteOperation } from './userOperations';
 import { getAuthorFeed, feedProperties, getTimeline } from './feedOperations';
 
@@ -70,11 +70,32 @@ export class BlueskyV2 implements INodeType {
 				/**
 				 * Post operations
 				 */
+
 				case 'post':
 					const postText = this.getNodeParameter('postText', i) as string;
 					const langs = this.getNodeParameter('langs', i) as string[];
-					const postData = await postOperations(agent, postText, langs);
+					const postData = await postOperation(agent, postText, langs);
 					returnData.push(...postData);
+					break;
+
+				case 'like':
+					const uriLike = this.getNodeParameter('uri', i) as string;
+					const cidLike = this.getNodeParameter('cid', i) as string;
+					const likeData = await likeOperation(agent, uriLike, cidLike);
+					returnData.push(...likeData);
+					break;
+
+				case 'deleteLike':
+					const uriDeleteLike = this.getNodeParameter('uri', i) as string;
+					const deleteLikeData = await deleteLikeOperation(agent, uriDeleteLike);
+					returnData.push(...deleteLikeData);
+					break;
+
+				case 'repost':
+					const uriRepost = this.getNodeParameter('uri', i) as string;
+					const cidRepost = this.getNodeParameter('cid', i) as string;
+					const repostData = await likeOperation(agent, uriRepost, cidRepost);
+					returnData.push(...repostData);
 					break;
 
 				/**
