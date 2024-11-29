@@ -17,7 +17,7 @@ export const getProfileOperationProperties: INodeProperties[] = [
 	},
 ];
 
-export async function getProfileDescription(agent: AtpAgent, actor: string): Promise<INodeExecutionData[]> {
+export async function getProfileOperation(agent: AtpAgent, actor: string): Promise<INodeExecutionData[]> {
 	const returnData: INodeExecutionData[] = [];
 	const profileResponse: AppBskyActorGetProfile.Response = await agent.getProfile({
 		actor: actor,

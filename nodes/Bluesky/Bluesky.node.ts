@@ -6,11 +6,11 @@ import {
 } from 'n8n-workflow';
 
 import { AtpAgent, CredentialSession } from '@atproto/api';
-import { getAuthorFeedDescription } from './getAuthorFeedDescription';
+import { getAuthorFeedOperation } from './getAuthorFeedOperation';
 
-import { operationProperties } from './operationDescription';
+import { operationProperty } from './operations';
 import { postDescription, postOperationProperties } from './postDescription';
-import { getProfileDescription, getProfileOperationProperties } from './getProfileDescription';
+import { getProfileOperation, getProfileOperationProperties } from './getProfileOperation';
 
 
 export class Bluesky implements INodeType {
@@ -34,7 +34,7 @@ export class Bluesky implements INodeType {
 			},
 		],
 		properties: [
-			...operationProperties,
+			operationProperty,
 			...getProfileOperationProperties,
 			...postOperationProperties,
 		],
@@ -63,11 +63,11 @@ export class Bluesky implements INodeType {
 
 		for (let i = 0; i < items.length; i++) {
 			if (operation === 'getAuthorFeed') {
-				const feedData = await getAuthorFeedDescription(agent, credentials.identifier);
+				const feedData = await getAuthorFeedOperation(agent, credentials.identifier);
 				returnData.push(...feedData);
 			} else if (operation === 'getProfile') {
 				const actor = this.getNodeParameter('actor', i) as string;
-				const profileData = await getProfileDescription(agent, actor);
+				const profileData = await getProfileOperation(agent, actor);
 				returnData.push(...profileData);
 			} else if (operation === 'post') {
 				const postText = this.getNodeParameter('postText', i) as string;
