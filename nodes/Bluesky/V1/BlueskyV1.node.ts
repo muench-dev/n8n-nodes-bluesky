@@ -2,13 +2,19 @@ import {
 	INodeExecutionData,
 	IExecuteFunctions,
 	INodeType,
-	INodeTypeDescription, INodeTypeBaseDescription,
+	INodeTypeDescription,
+	INodeTypeBaseDescription,
 } from 'n8n-workflow';
 
-import { AppBskyFeedGetAuthorFeed, AppBskyFeedPost, AtpAgent, CredentialSession, RichText } from '@atproto/api';
+import {
+	AppBskyFeedGetAuthorFeed,
+	AppBskyFeedPost,
+	AtpAgent,
+	CredentialSession,
+	RichText,
+} from '@atproto/api';
 import { getLanguageOptions } from './languages';
 import { FeedViewPost } from '@atproto/api/dist/client/types/app/bsky/feed/defs';
-
 
 export class BlueskyV1 implements INodeType {
 	description: INodeTypeDescription;
@@ -66,7 +72,8 @@ export class BlueskyV1 implements INodeType {
 					displayName: 'Language Names or IDs',
 					name: 'langs',
 					type: 'multiOptions',
-					description: 'Choose from the list of supported languages. Choose from the list, or specify IDs using an <a href="https://docs.n8n.io/code-examples/expressions/">expression</a>.',
+					description:
+						'Choose from the list of supported languages. Choose from the list, or specify IDs using an <a href="https://docs.n8n.io/code-examples/expressions/">expression</a>.',
 					options: getLanguageOptions(),
 					default: ['en'],
 					displayOptions: {
@@ -74,7 +81,7 @@ export class BlueskyV1 implements INodeType {
 							operation: ['post'],
 						},
 					},
-				}
+				},
 			],
 		};
 	}
@@ -84,7 +91,7 @@ export class BlueskyV1 implements INodeType {
 		const returnData: INodeExecutionData[] = [];
 
 		// Load credentials
-		const credentials = await this.getCredentials('blueskyApi') as {
+		const credentials = (await this.getCredentials('blueskyApi')) as {
 			identifier: string;
 			appPassword: string;
 			serviceUrl: string;
@@ -93,21 +100,19 @@ export class BlueskyV1 implements INodeType {
 		const operation = this.getNodeParameter('operation', 0) as string;
 		const serviceUrl = new URL(credentials.serviceUrl.replace(/\/+$/, '')); // Ensure no trailing slash
 
-
-		const session = new CredentialSession(serviceUrl)
-		const agent = new AtpAgent(session)
+		const session = new CredentialSession(serviceUrl);
+		const agent = new AtpAgent(session);
 		await agent.login({
 			identifier: credentials.identifier,
-			password: credentials.appPassword
-		})
+			password: credentials.appPassword,
+		});
 
 		for (let i = 0; i < items.length; i++) {
-
 			if (operation === 'getAuthorFeed') {
 				const authorFeedResponse: AppBskyFeedGetAuthorFeed.Response = await agent.getAuthorFeed({
 					actor: credentials.identifier,
 					limit: 10,
-				})
+				});
 
 				authorFeedResponse.data.feed.forEach((feedPost: FeedViewPost) => {
 					returnData.push({
@@ -116,32 +121,31 @@ export class BlueskyV1 implements INodeType {
 							reply: feedPost.reply,
 							reason: feedPost.reason,
 							feedContext: feedPost.feedContext,
-						}
+						},
 					});
-				})
+				});
 			}
 
 			if (operation === 'post') {
-
 				let rt = new RichText({
 					text: this.getNodeParameter('postText', i) as string,
-				})
+				});
 
-				await rt.detectFacets(agent)
+				await rt.detectFacets(agent);
 
 				let postData = {
 					text: rt.text,
 					langs: this.getNodeParameter('langs', i) as string[],
 					facets: rt.facets,
-				} as AppBskyFeedPost.Record & Omit<AppBskyFeedPost.Record, 'createdAt'>
+				} as AppBskyFeedPost.Record & Omit<AppBskyFeedPost.Record, 'createdAt'>;
 
-				const postResponse: { uri: string; cid: string } = await agent.post(postData)
+				const postResponse: { uri: string; cid: string } = await agent.post(postData);
 
 				returnData.push({
 					json: {
 						uri: postResponse.uri,
 						cid: postResponse.cid,
-					}
+					},
 				});
 			}
 		}

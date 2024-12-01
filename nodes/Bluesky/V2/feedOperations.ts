@@ -23,9 +23,10 @@ export const feedProperties: INodeProperties[] = [
 			{
 				name: 'Timeline',
 				value: 'getTimeline',
-				description: 'The default chronological feed of posts from users the authenticated user follows',
+				description:
+					'The default chronological feed of posts from users the authenticated user follows',
 				action: 'Retrieve user timeline',
-			}
+			},
 		],
 		default: 'getAuthorFeed',
 	},
@@ -35,7 +36,7 @@ export const feedProperties: INodeProperties[] = [
 		type: 'string',
 		default: '',
 		required: true,
-		description: 'The DID of the author whose posts you\'d like to fetch',
+		description: "The DID of the author whose posts you'd like to fetch",
 		hint: 'The user getProfile operation can be used to get the DID of a user',
 		displayOptions: {
 			show: {
@@ -60,10 +61,14 @@ export const feedProperties: INodeProperties[] = [
 				operation: ['getAuthorFeed', 'getTimeline'],
 			},
 		},
-	}
+	},
 ];
 
-export async function getAuthorFeed(agent: AtpAgent, actor: string, limit: number): Promise<INodeExecutionData[]> {
+export async function getAuthorFeed(
+	agent: AtpAgent,
+	actor: string,
+	limit: number,
+): Promise<INodeExecutionData[]> {
 	const returnData: INodeExecutionData[] = [];
 	const authorFeedResponse: AppBskyFeedGetAuthorFeed.Response = await agent.getAuthorFeed({
 		actor: actor,
@@ -101,4 +106,3 @@ export async function getTimeline(agent: AtpAgent, limit: number): Promise<INode
 	});
 	return returnData;
 }
-

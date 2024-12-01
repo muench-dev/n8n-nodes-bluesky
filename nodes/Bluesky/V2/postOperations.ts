@@ -100,7 +100,11 @@ export const postProperties: INodeProperties[] = [
 	},
 ];
 
-export async function postOperation(agent: AtpAgent, postText: string, langs: string[]): Promise<INodeExecutionData[]> {
+export async function postOperation(
+	agent: AtpAgent,
+	postText: string,
+	langs: string[],
+): Promise<INodeExecutionData[]> {
 	const returnData: INodeExecutionData[] = [];
 	let rt = new RichText({
 		text: postText,
@@ -125,23 +129,30 @@ export async function postOperation(agent: AtpAgent, postText: string, langs: st
 	return returnData;
 }
 
-export async function likeOperation(agent: AtpAgent, uri: string, cid: string): Promise<INodeExecutionData[]> {
+export async function likeOperation(
+	agent: AtpAgent,
+	uri: string,
+	cid: string,
+): Promise<INodeExecutionData[]> {
 	const returnData: INodeExecutionData[] = [];
 
 	// https://docs.bsky.app/docs/tutorials/like-repost#liking-a-post
-	const likeResponse:{ uri: string; cid: string } = await agent.like(uri, cid);
+	const likeResponse: { uri: string; cid: string } = await agent.like(uri, cid);
 
 	returnData.push({
 		json: {
 			uri: likeResponse.uri,
 			cid: likeResponse.cid,
 		},
-	})
+	});
 
 	return returnData;
 }
 
-export async function deleteLikeOperation(agent: AtpAgent, uri: string): Promise<INodeExecutionData[]> {
+export async function deleteLikeOperation(
+	agent: AtpAgent,
+	uri: string,
+): Promise<INodeExecutionData[]> {
 	const returnData: INodeExecutionData[] = [];
 
 	// no response from deleteLike
@@ -157,11 +168,15 @@ export async function deleteLikeOperation(agent: AtpAgent, uri: string): Promise
 	return returnData;
 }
 
-export async function repostOperation(agent: AtpAgent, uri: string, cid: string): Promise<INodeExecutionData[]> {
+export async function repostOperation(
+	agent: AtpAgent,
+	uri: string,
+	cid: string,
+): Promise<INodeExecutionData[]> {
 	const returnData: INodeExecutionData[] = [];
 
 	// https://docs.bsky.app/docs/tutorials/like-repost#quote-reposting
-	const repostResult:{ uri: string; cid: string } = await agent.repost(uri, cid);
+	const repostResult: { uri: string; cid: string } = await agent.repost(uri, cid);
 
 	returnData.push({
 		json: {
@@ -173,7 +188,10 @@ export async function repostOperation(agent: AtpAgent, uri: string, cid: string)
 	return returnData;
 }
 
-export async function deleteRepostOperation(agent: AtpAgent, uri: string): Promise<INodeExecutionData[]> {
+export async function deleteRepostOperation(
+	agent: AtpAgent,
+	uri: string,
+): Promise<INodeExecutionData[]> {
 	const returnData: INodeExecutionData[] = [];
 
 	// no response from deleteRepost

@@ -1,5 +1,11 @@
 import { INodeExecutionData, INodeProperties } from 'n8n-workflow';
-import { AppBskyActorGetProfile, AppBskyGraphMuteActor, AppBskyGraphUnmuteActor, AtpAgent, AtUri } from '@atproto/api';
+import {
+	AppBskyActorGetProfile,
+	AppBskyGraphMuteActor,
+	AppBskyGraphUnmuteActor,
+	AtpAgent,
+	AtUri,
+} from '@atproto/api';
 
 export const userProperties: INodeProperties[] = [
 	{
@@ -16,7 +22,8 @@ export const userProperties: INodeProperties[] = [
 			{
 				name: 'Block User',
 				value: 'block',
-				description: 'Blocking a user prevents interaction and hides the user from the client experience',
+				description:
+					'Blocking a user prevents interaction and hides the user from the client experience',
 				action: 'Block a user',
 			},
 			{
@@ -98,25 +105,27 @@ export async function muteOperation(agent: AtpAgent, did: string): Promise<INode
 	const muteResponse: AppBskyGraphMuteActor.Response = await agent.mute(did);
 
 	returnData.push({
-		json: (muteResponse as Object),
+		json: muteResponse as Object,
 	} as INodeExecutionData);
 
 	return returnData;
 }
-
 
 export async function unmuteOperation(agent: AtpAgent, did: string): Promise<INodeExecutionData[]> {
 	const returnData: INodeExecutionData[] = [];
 	const unmuteResponse: AppBskyGraphUnmuteActor.Response = await agent.unmute(did);
 
 	returnData.push({
-		json: (unmuteResponse as Object),
+		json: unmuteResponse as Object,
 	} as INodeExecutionData);
 
 	return returnData;
 }
 
-export async function getProfileOperation(agent: AtpAgent, actor: string): Promise<INodeExecutionData[]> {
+export async function getProfileOperation(
+	agent: AtpAgent,
+	actor: string,
+): Promise<INodeExecutionData[]> {
 	const returnData: INodeExecutionData[] = [];
 	const profileResponse: AppBskyActorGetProfile.Response = await agent.getProfile({
 		actor: actor,
@@ -136,9 +145,9 @@ export async function blockOperation(agent: AtpAgent, did: string): Promise<INod
 		{ repo: agent.did }, // owner DID
 		{
 			subject: did, // DID of the user to block
-			createdAt: new Date().toISOString()
+			createdAt: new Date().toISOString(),
 		},
-	)
+	);
 
 	returnData.push({
 		json: {
@@ -149,16 +158,17 @@ export async function blockOperation(agent: AtpAgent, did: string): Promise<INod
 	return returnData;
 }
 
-export async function unblockOperation(agent: AtpAgent, uri: string): Promise<INodeExecutionData[]> {
+export async function unblockOperation(
+	agent: AtpAgent,
+	uri: string,
+): Promise<INodeExecutionData[]> {
 	const returnData: INodeExecutionData[] = [];
-	const { rkey } = new AtUri(uri)
+	const { rkey } = new AtUri(uri);
 
-	await agent.app.bsky.graph.block.delete(
-		{
-			repo: agent.did,
-			rkey,
-		}
-	)
+	await agent.app.bsky.graph.block.delete({
+		repo: agent.did,
+		rkey,
+	});
 
 	returnData.push({
 		json: {

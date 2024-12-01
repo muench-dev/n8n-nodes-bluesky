@@ -17,7 +17,7 @@ export const resourcesProperty: INodeProperties = {
 		{
 			name: 'Post',
 			value: 'post',
-		}
+		},
 	],
 	default: 'post',
-}
+};

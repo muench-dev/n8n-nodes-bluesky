@@ -2,7 +2,8 @@ import {
 	INodeExecutionData,
 	IExecuteFunctions,
 	INodeType,
-	INodeTypeDescription, INodeTypeBaseDescription,
+	INodeTypeDescription,
+	INodeTypeBaseDescription,
 } from 'n8n-workflow';
 
 import { AtpAgent, CredentialSession } from '@atproto/api';
@@ -18,9 +19,15 @@ import {
 	postProperties,
 	repostOperation,
 } from './postOperations';
-import { getProfileOperation, muteOperation, userProperties, unmuteOperation, blockOperation, unblockOperation } from './userOperations';
+import {
+	getProfileOperation,
+	muteOperation,
+	userProperties,
+	unmuteOperation,
+	blockOperation,
+	unblockOperation,
+} from './userOperations';
 import { getAuthorFeed, feedProperties, getTimeline } from './feedOperations';
-
 
 export class BlueskyV2 implements INodeType {
 	description: INodeTypeDescription;
@@ -40,12 +47,7 @@ export class BlueskyV2 implements INodeType {
 					required: true,
 				},
 			],
-			properties: [
-				resourcesProperty,
-				...userProperties,
-				...postProperties,
-				...feedProperties,
-			],
+			properties: [resourcesProperty, ...userProperties, ...postProperties, ...feedProperties],
 		};
 	}
 
@@ -54,7 +56,7 @@ export class BlueskyV2 implements INodeType {
 		const returnData: INodeExecutionData[] = [];
 
 		// Load credentials
-		const credentials = await this.getCredentials('blueskyApi') as {
+		const credentials = (await this.getCredentials('blueskyApi')) as {
 			identifier: string;
 			appPassword: string;
 			serviceUrl: string;
@@ -71,9 +73,7 @@ export class BlueskyV2 implements INodeType {
 		});
 
 		for (let i = 0; i < items.length; i++) {
-
 			switch (operation) {
-
 				/**
 				 * Post operations
 				 */
@@ -118,20 +118,13 @@ export class BlueskyV2 implements INodeType {
 				case 'getAuthorFeed':
 					const authorFeedActor = this.getNodeParameter('actor', i) as string;
 					const authorFeedPostLimit = this.getNodeParameter('limit', i) as number;
-					const feedData = await getAuthorFeed(
-						agent,
-						authorFeedActor,
-						authorFeedPostLimit,
-					);
+					const feedData = await getAuthorFeed(agent, authorFeedActor, authorFeedPostLimit);
 					returnData.push(...feedData);
 					break;
 
 				case 'getTimeline':
 					const timelinePostLimit = this.getNodeParameter('limit', i) as number;
-					const timelineData = await getTimeline(
-						agent,
-						timelinePostLimit,
-					);
+					const timelineData = await getTimeline(agent, timelinePostLimit);
 					returnData.push(...timelineData);
 					break;
 
