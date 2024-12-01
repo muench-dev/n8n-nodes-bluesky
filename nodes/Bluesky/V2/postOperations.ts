@@ -170,7 +170,7 @@ export async function postOperation(
 		facets: rt.facets,
 	};
 
-	if (websiteCard) {
+	if (websiteCard?.uri) {
 		let thumbBlob = undefined;
 		if (websiteCard.thumbnailBinary) {
 			const uploadResponse = await agent.uploadBlob(websiteCard.thumbnailBinary, {
