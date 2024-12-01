@@ -1,4 +1,4 @@
-import { AppBskyFeedPost, AtpAgent, RichText } from '@atproto/api';
+import { AtpAgent, RichText } from '@atproto/api';
 import { INodeExecutionData, INodeProperties } from 'n8n-workflow';
 import { getLanguageOptions } from './languages';
 
@@ -17,8 +17,8 @@ export const postProperties: INodeProperties[] = [
 			{
 				name: 'Create a Post',
 				value: 'post',
-				description: 'Create a new post',
-				action: 'Post a status update to bluesky',
+				description: 'Post a message to the platform',
+				action: 'Create a post',
 			},
 			{
 				name: 'Delete Repost',
@@ -98,25 +98,97 @@ export const postProperties: INodeProperties[] = [
 			},
 		},
 	},
+	{
+		displayName: 'Website Card',
+		name: 'websiteCard',
+		type: 'fixedCollection',
+		default: {},
+		placeholder: 'Add Website Card',
+		options: [
+			{
+				displayName: 'Details',
+				name: 'details',
+				values: [
+					{
+						displayName: 'URI',
+						name: 'uri',
+						type: 'string',
+						default: '',
+						required: true,
+					},
+					{
+						displayName: 'Title',
+						name: 'title',
+						type: 'string',
+						default: '',
+						required: true,
+					},
+					{
+						displayName: 'Description',
+						name: 'description',
+						type: 'string',
+						default: '',
+					},
+					{
+						displayName: 'Binary Property',
+						name: 'thumbnailBinaryProperty',
+						type: 'string',
+						default: 'data',
+						description: 'Name of the binary property containing the thumbnail image',
+					},
+				],
+			},
+		],
+		displayOptions: {
+			show: {
+				resource: ['post'],
+				operation: ['post'],
+			},
+		},
+	},
 ];
 
 export async function postOperation(
 	agent: AtpAgent,
 	postText: string,
 	langs: string[],
+	websiteCard?: {
+		thumbnailBinary: Buffer | undefined;
+		description: string | undefined;
+		title: string | undefined;
+		uri: string | undefined;
+	},
 ): Promise<INodeExecutionData[]> {
 	const returnData: INodeExecutionData[] = [];
-	let rt = new RichText({
-		text: postText,
-	});
 
+	let rt = new RichText({ text: postText });
 	await rt.detectFacets(agent);
 
-	let postData = {
+	let postData: any = {
 		text: rt.text,
 		langs: langs,
 		facets: rt.facets,
-	} as AppBskyFeedPost.Record & Omit<AppBskyFeedPost.Record, 'createdAt'>;
+	};
+
+	if (websiteCard) {
+		let thumbBlob = undefined;
+		if (websiteCard.thumbnailBinary) {
+			const uploadResponse = await agent.uploadBlob(websiteCard.thumbnailBinary, {
+				encoding: 'image/png', // Adjust based on expected image type
+			});
+			thumbBlob = uploadResponse.data.blob;
+		}
+
+		postData.embed = {
+			$type: 'app.bsky.embed.external',
+			external: {
+				uri: websiteCard.uri,
+				title: websiteCard.title,
+				description: websiteCard.description,
+				thumb: thumbBlob,
+			},
+		};
+	}
 
 	const postResponse: { uri: string; cid: string } = await agent.post(postData);
 
@@ -126,6 +198,7 @@ export async function postOperation(
 			cid: postResponse.cid,
 		},
 	});
+
 	return returnData;
 }
 

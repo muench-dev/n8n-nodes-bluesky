@@ -81,7 +81,37 @@ export class BlueskyV2 implements INodeType {
 				case 'post':
 					const postText = this.getNodeParameter('postText', i) as string;
 					const langs = this.getNodeParameter('langs', i) as string[];
-					const postData = await postOperation(agent, postText, langs);
+
+					// Get website card details if provided
+					const websiteCardDetails = this.getNodeParameter('websiteCard', i, {}) as {
+						details?: {
+							uri: string;
+							title: string;
+							description: string;
+							thumbnailBinaryProperty?: string;
+						};
+					};
+
+					let thumbnailBinary: Buffer | undefined;
+					if (websiteCardDetails.details?.thumbnailBinaryProperty) {
+						thumbnailBinary = await this.helpers.getBinaryDataBuffer(
+							i,
+							websiteCardDetails.details.thumbnailBinaryProperty as string
+						);
+					}
+
+					const postData = await postOperation(
+						agent,
+						postText,
+						langs,
+						{
+							uri: websiteCardDetails.details?.uri,
+							title: websiteCardDetails.details?.title,
+							description: websiteCardDetails.details?.description,
+							thumbnailBinary: thumbnailBinary,
+						}
+					);
+
 					returnData.push(...postData);
 					break;
 
