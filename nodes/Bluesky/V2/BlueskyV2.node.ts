@@ -10,8 +10,15 @@ import { AtpAgent, CredentialSession } from '@atproto/api';
 import { resourcesProperty } from './resources';
 
 // Operations
-import { deleteLikeOperation, likeOperation, postOperation, postProperties } from './postOperations';
-import { getProfileOperation, muteOperation, userProperties, unmuteOperation } from './userOperations';
+import {
+	deleteLikeOperation,
+	likeOperation,
+	postOperation,
+	deleteRepostOperation,
+	postProperties,
+	repostOperation,
+} from './postOperations';
+import { getProfileOperation, muteOperation, userProperties, unmuteOperation, blockOperation } from './userOperations';
 import { getAuthorFeed, feedProperties, getTimeline } from './feedOperations';
 
 
@@ -94,8 +101,14 @@ export class BlueskyV2 implements INodeType {
 				case 'repost':
 					const uriRepost = this.getNodeParameter('uri', i) as string;
 					const cidRepost = this.getNodeParameter('cid', i) as string;
-					const repostData = await likeOperation(agent, uriRepost, cidRepost);
+					const repostData = await repostOperation(agent, uriRepost, cidRepost);
 					returnData.push(...repostData);
+					break;
+
+				case 'deleteRepost':
+					const uriDeleteRepost = this.getNodeParameter('uri', i) as string;
+					const deleteRepostData = await deleteRepostOperation(agent, uriDeleteRepost);
+					returnData.push(...deleteRepostData);
 					break;
 
 				/**
@@ -142,6 +155,12 @@ export class BlueskyV2 implements INodeType {
 					const didUnmute = this.getNodeParameter('did', i) as string;
 					const unmuteData = await unmuteOperation(agent, didUnmute);
 					returnData.push(...unmuteData);
+					break;
+
+				case 'block':
+					const didBlock = this.getNodeParameter('did', i) as string;
+					const blockData = await blockOperation(agent, didBlock);
+					returnData.push(...blockData);
 					break;
 
 				default:

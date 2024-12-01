@@ -18,6 +18,7 @@ In n8n community edition, you can install the nodes in the settings page.
 	- Get Profile
   - Mute User
   - Un-mute User
+  - Block User
 - Feed
 	- Get Author Feed
 	- Get Timeline of current user
@@ -26,6 +27,7 @@ In n8n community edition, you can install the nodes in the settings page.
   - Like
   - Unlike
   - Repost
+  - Delete Repost
 
 ## Screenshots
 

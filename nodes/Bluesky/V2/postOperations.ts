@@ -5,14 +5,14 @@ import { getLanguageOptions } from './languages';
 export const postProperties: INodeProperties[] = [
 	{
 		displayName: 'Operation',
-		name: 'operation',
-		type: 'options',
-		noDataExpression: true,
+		default: 'post',
 		displayOptions: {
 			show: {
 				resource: ['post'],
 			},
 		},
+		name: 'operation',
+		noDataExpression: true,
 		options: [
 			{
 				name: 'Create a Post',
@@ -21,22 +21,27 @@ export const postProperties: INodeProperties[] = [
 				action: 'Post a status update to bluesky',
 			},
 			{
+				name: 'Delete Repost',
+				value: 'deleteRepost',
+				action: 'Delete a repost',
+			},
+			{
 				name: 'Like a Post',
 				value: 'like',
 				action: 'Like a post',
+			},
+			{
+				name: 'Repost a Post',
+				value: 'repost',
+				action: 'Unlike a post',
 			},
 			{
 				name: 'Unline a Post',
 				value: 'deleteLike',
 				action: 'Unlike a post',
 			},
-			{
-				name: 'Repost a Post',
-				value: 'repost',
-				action: 'Unlike a post',
-			}
 		],
-		default: 'post',
+		type: 'options',
 	},
 	{
 		displayName: 'Post Text',
@@ -54,7 +59,8 @@ export const postProperties: INodeProperties[] = [
 		displayName: 'Language Names or IDs',
 		name: 'langs',
 		type: 'multiOptions',
-		description: 'Choose from the list of supported languages. Choose from the list, or specify IDs using an <a href="https://docs.n8n.io/code-examples/expressions/">expression</a>.',
+		description:
+			'Choose from the list of supported languages. Choose from the list, or specify IDs using an <a href="https://docs.n8n.io/code-examples/expressions/">expression</a>.',
 		options: getLanguageOptions(),
 		default: ['en'],
 		displayOptions: {
@@ -91,7 +97,7 @@ export const postProperties: INodeProperties[] = [
 				operation: ['like', 'repost'],
 			},
 		},
-	}
+	},
 ];
 
 export async function postOperation(agent: AtpAgent, postText: string, langs: string[]): Promise<INodeExecutionData[]> {
@@ -161,6 +167,21 @@ export async function repostOperation(agent: AtpAgent, uri: string, cid: string)
 		json: {
 			uri: repostResult.uri,
 			cid: repostResult.cid,
+		},
+	});
+
+	return returnData;
+}
+
+export async function deleteRepostOperation(agent: AtpAgent, uri: string): Promise<INodeExecutionData[]> {
+	const returnData: INodeExecutionData[] = [];
+
+	// no response from deleteRepost
+	await agent.deleteRepost(uri);
+
+	returnData.push({
+		json: {
+			uri: uri,
 		},
 	});
 

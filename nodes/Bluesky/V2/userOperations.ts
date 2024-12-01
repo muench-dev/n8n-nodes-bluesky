@@ -31,6 +31,12 @@ export const userProperties: INodeProperties[] = [
 				description: 'Muting a user hides their posts from your feeds',
 				action: 'Un mute a user',
 			},
+			{
+				name: 'Block User',
+				value: 'block',
+				description: 'Blocking a user prevents interaction and hides the user from the client experience',
+				action: 'Block a user',
+			}
 		],
 		default: 'getProfile',
 	},
@@ -96,6 +102,26 @@ export async function getProfileOperation(agent: AtpAgent, actor: string): Promi
 
 	returnData.push({
 		json: profileResponse.data,
+	} as INodeExecutionData);
+
+	return returnData;
+}
+
+export async function blockOperation(agent: AtpAgent, did: string): Promise<INodeExecutionData[]> {
+	const returnData: INodeExecutionData[] = [];
+
+	const { uri } = await agent.app.bsky.graph.block.create(
+		{ repo: agent.did }, // owner DID
+		{
+			subject: did, // DID of the user to block
+			createdAt: new Date().toISOString()
+		},
+	)
+
+	returnData.push({
+		json: {
+			uri,
+		},
 	} as INodeExecutionData);
 
 	return returnData;
