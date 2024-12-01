@@ -52,10 +52,10 @@
     "typescript": "^5.5.3"
   },
   "peerDependencies": {
-    "n8n-workflow": "*"
+    "n8n-workflow": "*",
+    "n8n-core": "*"
   },
   "dependencies": {
-    "@atproto/api": "^0.13.18",
-    "n8n-core": "^1.14.1"
+    "@atproto/api": "^0.13.18"
   }
 }
