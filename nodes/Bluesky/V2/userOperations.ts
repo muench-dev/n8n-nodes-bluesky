@@ -1,5 +1,5 @@
 import { INodeExecutionData, INodeProperties } from 'n8n-workflow';
-import { AppBskyActorGetProfile, AppBskyGraphMuteActor, AppBskyGraphUnmuteActor, AtpAgent } from '@atproto/api';
+import { AppBskyActorGetProfile, AppBskyGraphMuteActor, AppBskyGraphUnmuteActor, AtpAgent, AtUri } from '@atproto/api';
 
 export const userProperties: INodeProperties[] = [
 	{
@@ -14,6 +14,12 @@ export const userProperties: INodeProperties[] = [
 		},
 		options: [
 			{
+				name: 'Block User',
+				value: 'block',
+				description: 'Blocking a user prevents interaction and hides the user from the client experience',
+				action: 'Block a user',
+			},
+			{
 				name: 'Get Profile',
 				value: 'getProfile',
 				description: 'Get detailed profile view of an actor',
@@ -25,18 +31,20 @@ export const userProperties: INodeProperties[] = [
 				description: 'Muting a user hides their posts from your feeds',
 				action: 'Mute a user',
 			},
+			/*
+			Find an easy way to resolve the uri to provide a better user experience
+			{
+				name: 'Un-Block User',
+				value: 'unblock',
+				description: 'Unblocking a user restores interaction and shows the user in the client experience',
+				action: 'Unblock a user',
+			},*/
 			{
 				name: 'Un-Mute User',
 				value: 'unmute',
 				description: 'Muting a user hides their posts from your feeds',
-				action: 'Un mute a user',
+				action: 'Unmute a user',
 			},
-			{
-				name: 'Block User',
-				value: 'block',
-				description: 'Blocking a user prevents interaction and hides the user from the client experience',
-				action: 'Block a user',
-			}
 		],
 		default: 'getProfile',
 	},
@@ -51,7 +59,7 @@ export const userProperties: INodeProperties[] = [
 		displayOptions: {
 			show: {
 				resource: ['user'],
-				operation: ['mute', 'unmute'],
+				operation: ['mute', 'unmute', 'block'],
 			},
 		},
 	},
@@ -66,6 +74,20 @@ export const userProperties: INodeProperties[] = [
 			show: {
 				resource: ['user'],
 				operation: ['getProfile'],
+			},
+		},
+	},
+	{
+		displayName: 'Uri',
+		name: 'uri',
+		type: 'string',
+		description: 'The URI of the user',
+		default: '',
+		required: true,
+		displayOptions: {
+			show: {
+				resource: ['user'],
+				operation: ['unblock'],
 			},
 		},
 	},
@@ -127,3 +149,22 @@ export async function blockOperation(agent: AtpAgent, did: string): Promise<INod
 	return returnData;
 }
 
+export async function unblockOperation(agent: AtpAgent, uri: string): Promise<INodeExecutionData[]> {
+	const returnData: INodeExecutionData[] = [];
+	const { rkey } = new AtUri(uri)
+
+	await agent.app.bsky.graph.block.delete(
+		{
+			repo: agent.did,
+			rkey,
+		}
+	)
+
+	returnData.push({
+		json: {
+			uri,
+		},
+	} as INodeExecutionData);
+
+	return returnData;
+}

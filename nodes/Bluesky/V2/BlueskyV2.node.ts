@@ -18,7 +18,7 @@ import {
 	postProperties,
 	repostOperation,
 } from './postOperations';
-import { getProfileOperation, muteOperation, userProperties, unmuteOperation, blockOperation } from './userOperations';
+import { getProfileOperation, muteOperation, userProperties, unmuteOperation, blockOperation, unblockOperation } from './userOperations';
 import { getAuthorFeed, feedProperties, getTimeline } from './feedOperations';
 
 
@@ -161,6 +161,12 @@ export class BlueskyV2 implements INodeType {
 					const didBlock = this.getNodeParameter('did', i) as string;
 					const blockData = await blockOperation(agent, didBlock);
 					returnData.push(...blockData);
+					break;
+
+				case 'unblock':
+					const uriUnblock = this.getNodeParameter('uri', i) as string;
+					const unblockData = await unblockOperation(agent, uriUnblock);
+					returnData.push(...unblockData);
 					break;
 
 				default:

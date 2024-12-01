@@ -15,10 +15,10 @@ In n8n community edition, you can install the nodes in the settings page.
 ## Features
 
 - User
+	- Block User
 	- Get Profile
-  - Mute User
-  - Un-mute User
-  - Block User
+	- Mute User
+	- Un-mute User
 - Feed
 	- Get Author Feed
 	- Get Timeline of current user
