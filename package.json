@@ -52,10 +52,11 @@
     "typescript": "^5.5.3"
   },
   "peerDependencies": {
-    "n8n-workflow": "*",
-    "n8n-core": "*"
+    "n8n-core": "*",
+    "n8n-workflow": "*"
   },
   "dependencies": {
-    "@atproto/api": "^0.13.18"
+    "@atproto/api": "^0.13.18",
+    "open-graph-scraper": "^6.8.2"
   }
 }

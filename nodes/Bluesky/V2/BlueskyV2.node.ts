@@ -89,11 +89,14 @@ export class BlueskyV2 implements INodeType {
 							title: string;
 							description: string;
 							thumbnailBinaryProperty?: string;
+							fetchOpenGraphTags: boolean;
 						};
 					};
 
 					let thumbnailBinary: Buffer | undefined;
-					if (websiteCardDetails.details?.thumbnailBinaryProperty) {
+					if (websiteCardDetails.details?.thumbnailBinaryProperty
+						  && websiteCardDetails.details?.fetchOpenGraphTags === false
+					) {
 						thumbnailBinary = await this.helpers.getBinaryDataBuffer(
 							i,
 							websiteCardDetails.details.thumbnailBinaryProperty as string
@@ -109,6 +112,7 @@ export class BlueskyV2 implements INodeType {
 							title: websiteCardDetails.details?.title,
 							description: websiteCardDetails.details?.description,
 							thumbnailBinary: thumbnailBinary,
+							fetchOpenGraphTags: websiteCardDetails.details?.fetchOpenGraphTags,
 						}
 					);
 

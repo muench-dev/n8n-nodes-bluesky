@@ -1,6 +1,7 @@
 import { AtpAgent, RichText } from '@atproto/api';
 import { INodeExecutionData, INodeProperties } from 'n8n-workflow';
 import { getLanguageOptions } from './languages';
+import ogs from 'open-graph-scraper';
 
 export const postProperties: INodeProperties[] = [
 	{
@@ -33,7 +34,7 @@ export const postProperties: INodeProperties[] = [
 			{
 				name: 'Repost a Post',
 				value: 'repost',
-				action: 'Unlike a post',
+				action: 'Repost a post',
 			},
 			{
 				name: 'Unline a Post',
@@ -117,17 +118,35 @@ export const postProperties: INodeProperties[] = [
 						required: true,
 					},
 					{
+						displayName: 'Fetch Open Graph Tags',
+						name: 'fetchOpenGraphTags',
+						type: 'boolean',
+						description: 'Whether to fetch open graph tags from the website',
+						hint: 'If enabled, the node will fetch the open graph tags from the website URL provided and use them to create a website card',
+						default: false,
+					},
+					{
 						displayName: 'Title',
 						name: 'title',
 						type: 'string',
 						default: '',
 						required: true,
+						displayOptions: {
+							show: {
+								fetchOpenGraphTags: [false],
+							},
+						}
 					},
 					{
 						displayName: 'Description',
 						name: 'description',
 						type: 'string',
 						default: '',
+						displayOptions: {
+							show: {
+								fetchOpenGraphTags: [false],
+							},
+						}
 					},
 					{
 						displayName: 'Binary Property',
@@ -135,6 +154,11 @@ export const postProperties: INodeProperties[] = [
 						type: 'string',
 						default: 'data',
 						description: 'Name of the binary property containing the thumbnail image',
+						displayOptions: {
+							show: {
+								fetchOpenGraphTags: [false],
+							},
+						}
 					},
 				],
 			},
@@ -157,6 +181,7 @@ export async function postOperation(
 		description: string | undefined;
 		title: string | undefined;
 		uri: string | undefined;
+		fetchOpenGraphTags: boolean | undefined;
 	},
 ): Promise<INodeExecutionData[]> {
 	const returnData: INodeExecutionData[] = [];
@@ -177,6 +202,33 @@ export async function postOperation(
 				encoding: 'image/png', // Adjust based on expected image type
 			});
 			thumbBlob = uploadResponse.data.blob;
+		}
+
+		if (websiteCard.fetchOpenGraphTags === true) {
+			const ogsResponse = await ogs({ url: websiteCard.uri })
+			if (ogsResponse.error) {
+				throw new Error(`Error fetching Open Graph tags: ${ogsResponse.error}`);
+			}
+			if (ogsResponse.result.ogImage) {
+				// create thumbBlob from ogsResult.result.ogImage
+				// get base64 image data from ogsResponse.result.ogImage.url
+
+				const imageDataResponse = await fetch(ogsResponse.result.ogImage[0].url)
+				if (!imageDataResponse.ok) {
+					throw new Error(`Error fetching image data: ${imageDataResponse.statusText}`);
+				}
+				// Create a n8n binary buffer from the image data
+				const thumbBlobArrayBuffer = await imageDataResponse.arrayBuffer();
+				thumbBlob = Buffer.from(thumbBlobArrayBuffer);
+				const { data } = await agent.uploadBlob(thumbBlob)
+				thumbBlob = data.blob;
+			}
+			if (ogsResponse.result.ogTitle) {
+				websiteCard.title = ogsResponse.result.ogTitle;
+			}
+			if (ogsResponse.result.ogDescription) {
+				websiteCard.description = ogsResponse.result.ogDescription;
+			}
 		}
 
 		postData.embed = {
