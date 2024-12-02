@@ -32,3 +32,15 @@ In n8n community edition, you can install the nodes in the settings page.
 ## Screenshots
 
 ![images](.github/images/screenshot_20241128_174932.png)
+
+## Use Cases
+
+### RSS Feed to Bluesky
+
+You can use the RSS Trigger node to get the latest posts from an RSS feed and then use the Create Post node to post them to Bluesky.
+
+![images](.github/images/use_case_rss_trigger_overview.png)
+
+Use Open Graph Tags to get the image and description of the post.
+
+![images](.github/images/use_case_rss_trigger_node_details.png)
