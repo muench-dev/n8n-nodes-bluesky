@@ -1,4 +1,4 @@
-import { ICredentialType, INodeProperties } from 'n8n-workflow';
+import { ICredentialTestRequest, ICredentialType, INodeProperties } from 'n8n-workflow';
 import { Icon } from 'n8n-workflow/dist/Interfaces';
 
 export class BlueskyApi implements ICredentialType {
@@ -34,4 +34,17 @@ export class BlueskyApi implements ICredentialType {
 			required: true,
 		},
 	];
+
+	test: ICredentialTestRequest = {
+		request: {
+			baseURL: '={{$credentials.serviceUrl}}',
+			url: '/xrpc/com.atproto.server.createSession',
+			method: 'POST',
+			json: true,
+			body: {
+				identifier: '={{$credentials.identifier}}',
+				password: '={{$credentials.appPassword}}',
+			},
+		},
+	};
 }
