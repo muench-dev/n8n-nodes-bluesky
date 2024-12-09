@@ -16,7 +16,7 @@ importers:
         version: 1.14.1(n8n-nodes-base@1.14.1(@aws-sdk/client-sso-oidc@3.699.0(@aws-sdk/client-sts@3.699.0))(asn1.js@5.4.1)(promise-ftp-common@1.1.5))
       open-graph-scraper:
         specifier: ^6.8.2
-        version: 6.8.2
+        version: 6.8.3
     devDependencies:
       '@typescript-eslint/parser':
         specifier: ^8.16.0
@@ -2496,8 +2496,8 @@ packages:
   one-time@1.0.0:
     resolution: {integrity: sha512-5DXOiRKwuSEcQ/l0kGCF6Q3jcADFv5tSmRaJck/OqkVFcOzutB134KRSfF0xDrL39MNnqxbHBbUUcjZIhTgb2g==}
 
-  open-graph-scraper@6.8.2:
-    resolution: {integrity: sha512-Ht3k+bhEfLCojwka13xN+9B6LANJBcANI9TZ28KNBMBlK/dp/ooEblDyzj25RQVzXWUAK4UDlQQHU4hFmCnClg==}
+  open-graph-scraper@6.8.3:
+    resolution: {integrity: sha512-nzMlmvwoFOcFsghNxtrSMXayxiZKqEN373AbtTGKrOxw6LRXaTay8kBjGpUaTIAc0gsjpnGZloR2uQuNc7QoQA==}
     engines: {node: '>=18.0.0'}
 
   open@7.4.2:
@@ -7132,7 +7132,7 @@ snapshots:
     dependencies:
       fn.name: 1.1.0
 
-  open-graph-scraper@6.8.2:
+  open-graph-scraper@6.8.3:
     dependencies:
       chardet: 2.0.0
       cheerio: 1.0.0
