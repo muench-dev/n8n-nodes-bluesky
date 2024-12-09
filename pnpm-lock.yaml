@@ -10,7 +10,7 @@ importers:
     dependencies:
       '@atproto/api':
         specifier: ^0.13.18
-        version: 0.13.18
+        version: 0.13.19
       n8n-core:
         specifier: '*'
         version: 1.14.1(n8n-nodes-base@1.14.1(@aws-sdk/client-sso-oidc@3.699.0(@aws-sdk/client-sts@3.699.0))(asn1.js@5.4.1)(promise-ftp-common@1.1.5))
@@ -46,8 +46,8 @@ packages:
     resolution: {integrity: sha512-29lUK80d1muEQqiUsSo+3A0yP6CdspgC95EnKBMi22Xlwt79i/En4Vr67+cXhU+cZjbti3TgGGC5wy1stIywVQ==}
     engines: {node: '>=0.8'}
 
-  '@atproto/api@0.13.18':
-    resolution: {integrity: sha512-rrl5HhzGYWZ7fiC965TPBUOVItq9M4dxMb6qz8IvAVQliSkrJrKc7UD0QWL89QiiXaOBuX8w+4i5r4wrfBGddg==}
+  '@atproto/api@0.13.19':
+    resolution: {integrity: sha512-rLWQBZaOIk3ds1Fx9CwrdyX3X2GbdSEvVJ9mdSPNX40joiEaE1ljGMOcziFipbvZacXynozE4E0Sb1CgOhzfmA==}
 
   '@atproto/common-web@0.3.1':
     resolution: {integrity: sha512-N7wiTnus5vAr+lT//0y8m/FaHHLJ9LpGuEwkwDAeV3LCiPif4m/FS8x/QOYrx1PdZQwKso95RAPzCGWQBH5j6Q==}
@@ -3169,10 +3169,6 @@ packages:
   title-case@3.0.3:
     resolution: {integrity: sha512-e1zGYRvbffpcHIrnuqT0Dh+gEJtDaxDSoG4JAIpq4oDFyooziLBIiYQv0GBT4FUAnUop5uZ1hiIAj7oAF6sOCA==}
 
-  tlds@1.252.0:
-    resolution: {integrity: sha512-GA16+8HXvqtfEnw/DTcwB0UU354QE1n3+wh08oFjr6Znl7ZLAeUgYzCcK+/CCrOyE0vnHR8/pu3XXG3vDijXpQ==}
-    hasBin: true
-
   tlds@1.255.0:
     resolution: {integrity: sha512-tcwMRIioTcF/FcxLev8MJWxCp+GUALRhFEqbDoZrnowmKSGqPrl5pqS+Sut2m8BgJ6S4FExCSSpGffZ0Tks6Aw==}
     hasBin: true
@@ -3522,7 +3518,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@atproto/api@0.13.18':
+  '@atproto/api@0.13.19':
     dependencies:
       '@atproto/common-web': 0.3.1
       '@atproto/lexicon': 0.4.3
@@ -3530,7 +3526,7 @@ snapshots:
       '@atproto/xrpc': 0.6.4
       await-lock: 2.2.2
       multiformats: 9.9.0
-      tlds: 1.252.0
+      tlds: 1.255.0
       zod: 3.23.8
 
   '@atproto/common-web@0.3.1':
@@ -7876,8 +7872,6 @@ snapshots:
   title-case@3.0.3:
     dependencies:
       tslib: 2.8.1
-
-  tlds@1.252.0: {}
 
   tlds@1.255.0: {}
 
