@@ -1,6 +1,6 @@
 {
   "name": "@muench-dev/n8n-nodes-bluesky",
-  "version": "2.7.1",
+  "version": "2.7.2",
   "description": "BlueSky API nodes for n8n",
   "keywords": [
     "n8n-community-node-package"
