@@ -1,5 +1,5 @@
 import { ICredentialTestRequest, ICredentialType, INodeProperties } from 'n8n-workflow';
-import { Icon } from 'n8n-workflow/dist/Interfaces';
+import { Icon } from 'n8n-workflow';
 
 export class BlueskyApi implements ICredentialType {
 	displayName = 'Bluesky API';
