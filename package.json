@@ -23,7 +23,9 @@
   "main": "index.js",
   "scripts": {
     "preinstall": "npx only-allow pnpm",
-    "build": "tsc && gulp build:icons",
+    "clean": "rimraf dist/",
+    "build": "npm run clean && tsc && npm run build:images",
+    "build:images": "copyfiles nodes/**/*.svg nodes/**/*.png dist/",
     "dev": "tsc --watch",
     "format": "prettier nodes credentials --write",
     "lint": "eslint nodes credentials package.json",
@@ -45,11 +47,12 @@
   "devDependencies": {
     "@types/node": "^22.10.1",
     "@typescript-eslint/parser": "^8.16.0",
+    "copyfiles": "^2.4.1",
     "eslint": "^8.56.0",
     "eslint-plugin-n8n-nodes-base": "^1.16.1",
-    "gulp": "^5.0.0",
     "n8n-workflow": "*",
     "prettier": "^3.3.2",
+    "rimraf": "^6.0.1",
     "typescript": "^5.5.3"
   },
   "peerDependencies": {
