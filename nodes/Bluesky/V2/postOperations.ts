@@ -18,8 +18,12 @@ export const postProperties: INodeProperties[] = [
 			{
 				name: 'Create a Post',
 				value: 'post',
-				description: 'Post a message to the platform',
 				action: 'Create a post',
+			},
+			{
+				name: 'Delete a Post',
+				value: 'deletePost',
+				action: 'Delete a post',
 			},
 			{
 				name: 'Delete Repost',
@@ -81,7 +85,7 @@ export const postProperties: INodeProperties[] = [
 		displayOptions: {
 			show: {
 				resource: ['post'],
-				operation: ['like', 'deleteLike', 'repost'],
+				operation: ['deletePost', 'like', 'deleteLike', 'repost'],
 			},
 		},
 	},
@@ -248,6 +252,19 @@ export async function postOperation(
 		json: {
 			uri: postResponse.uri,
 			cid: postResponse.cid,
+		},
+	});
+
+	return returnData;
+}
+
+export async function deletePostOperation(agent: AtpAgent, uri: string): Promise<INodeExecutionData[]> {
+	const returnData: INodeExecutionData[] = [];
+	await agent.deletePost(uri)
+
+	returnData.push({
+		json: {
+			uri: uri,
 		},
 	});
 

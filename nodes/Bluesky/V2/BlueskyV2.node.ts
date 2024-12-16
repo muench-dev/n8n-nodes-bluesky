@@ -13,6 +13,7 @@ import { resourcesProperty } from './resources';
 // Operations
 import {
 	deleteLikeOperation,
+	deletePostOperation,
 	likeOperation,
 	postOperation,
 	deleteRepostOperation,
@@ -117,6 +118,12 @@ export class BlueskyV2 implements INodeType {
 					);
 
 					returnData.push(...postData);
+					break;
+
+				case 'deletePost':
+					const uriDeletePost = this.getNodeParameter('uri', i) as string;
+					const deletePostData = await deletePostOperation(agent, uriDeletePost);
+					returnData.push(...deletePostData);
 					break;
 
 				case 'like':
