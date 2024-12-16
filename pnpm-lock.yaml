@@ -10,7 +10,7 @@ importers:
     dependencies:
       '@atproto/api':
         specifier: ^0.13.18
-        version: 0.13.19
+        version: 0.13.20
       open-graph-scraper:
         specifier: ^6.8.2
         version: 6.8.3
@@ -45,20 +45,20 @@ importers:
 
 packages:
 
-  '@atproto/api@0.13.19':
-    resolution: {integrity: sha512-rLWQBZaOIk3ds1Fx9CwrdyX3X2GbdSEvVJ9mdSPNX40joiEaE1ljGMOcziFipbvZacXynozE4E0Sb1CgOhzfmA==}
+  '@atproto/api@0.13.20':
+    resolution: {integrity: sha512-z/+CvG6BEttRHf856tKSe1AeUQNfrobRJldaHAthGmFk7O3wLZQyfcI9DUmBJQ9+4wAt0dZwvKWVGLZOV9eLHA==}
 
   '@atproto/common-web@0.3.1':
     resolution: {integrity: sha512-N7wiTnus5vAr+lT//0y8m/FaHHLJ9LpGuEwkwDAeV3LCiPif4m/FS8x/QOYrx1PdZQwKso95RAPzCGWQBH5j6Q==}
 
-  '@atproto/lexicon@0.4.3':
-    resolution: {integrity: sha512-lFVZXe1S1pJP0dcxvJuHP3r/a+EAIBwwU7jUK+r8iLhIja+ml6NmYv8KeFHmIJATh03spEQ9s02duDmFVdCoXg==}
+  '@atproto/lexicon@0.4.4':
+    resolution: {integrity: sha512-QFEmr3rpj/RoAmfX9ALU/asBG/rsVtQZnw+9nOB1/AuIwoxXd+ZyndR6lVUc2+DL4GEjl6W2yvBru5xbQIZWyA==}
 
   '@atproto/syntax@0.3.1':
     resolution: {integrity: sha512-fzW0Mg1QUOVCWUD3RgEsDt6d1OZ6DdFmbKcDdbzUfh0t4rhtRAC05KbZYmxuMPWDAiJ4BbbQ5dkAc/mNypMXkw==}
 
-  '@atproto/xrpc@0.6.4':
-    resolution: {integrity: sha512-9ZAJ8nsXTqC4XFyS0E1Wlg7bAvonhXQNQ3Ocs1L1LIwFLXvsw/4fNpIHXxvXvqTCVeyHLbImOnE9UiO1c/qIYA==}
+  '@atproto/xrpc@0.6.5':
+    resolution: {integrity: sha512-t6u8iPEVbWge5RhzKZDahSzNDYIAxUtop6Q/X/apAZY1rgreVU0/1sSvvRoRFH19d3UIKjYdLuwFqMi9w8nY3Q==}
 
   '@eslint-community/eslint-utils@4.4.0':
     resolution: {integrity: sha512-1/sA4dwrzBAyeUoQ6oxahHKmrZvsnLCg4RfxW3ZFGGmQkSNQPFNLV9CUEFQP1x9EYXHTo5p6xdhZM1Ne9p/AfA==}
@@ -1248,12 +1248,12 @@ packages:
 
 snapshots:
 
-  '@atproto/api@0.13.19':
+  '@atproto/api@0.13.20':
     dependencies:
       '@atproto/common-web': 0.3.1
-      '@atproto/lexicon': 0.4.3
+      '@atproto/lexicon': 0.4.4
       '@atproto/syntax': 0.3.1
-      '@atproto/xrpc': 0.6.4
+      '@atproto/xrpc': 0.6.5
       await-lock: 2.2.2
       multiformats: 9.9.0
       tlds: 1.255.0
@@ -1266,7 +1266,7 @@ snapshots:
       uint8arrays: 3.0.0
       zod: 3.23.8
 
-  '@atproto/lexicon@0.4.3':
+  '@atproto/lexicon@0.4.4':
     dependencies:
       '@atproto/common-web': 0.3.1
       '@atproto/syntax': 0.3.1
@@ -1276,9 +1276,9 @@ snapshots:
 
   '@atproto/syntax@0.3.1': {}
 
-  '@atproto/xrpc@0.6.4':
+  '@atproto/xrpc@0.6.5':
     dependencies:
-      '@atproto/lexicon': 0.4.3
+      '@atproto/lexicon': 0.4.4
       zod: 3.23.8
 
   '@eslint-community/eslint-utils@4.4.0(eslint@8.57.0)':
