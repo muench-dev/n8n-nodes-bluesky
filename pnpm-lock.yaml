@@ -10,7 +10,7 @@ importers:
     dependencies:
       '@atproto/api':
         specifier: ^0.13.18
-        version: 0.13.20
+        version: 0.13.23
       open-graph-scraper:
         specifier: ^6.8.2
         version: 6.8.3
@@ -45,8 +45,8 @@ importers:
 
 packages:
 
-  '@atproto/api@0.13.20':
-    resolution: {integrity: sha512-z/+CvG6BEttRHf856tKSe1AeUQNfrobRJldaHAthGmFk7O3wLZQyfcI9DUmBJQ9+4wAt0dZwvKWVGLZOV9eLHA==}
+  '@atproto/api@0.13.23':
+    resolution: {integrity: sha512-V1Z5kgfSsqlFaC14sjnZL1Psv/9Lq/YKW1w7TIBq948Rtq8l+c6BpGrOH2Ssdcphpqi4OSeSYRsmJJlD6GGJ5w==}
 
   '@atproto/common-web@0.3.1':
     resolution: {integrity: sha512-N7wiTnus5vAr+lT//0y8m/FaHHLJ9LpGuEwkwDAeV3LCiPif4m/FS8x/QOYrx1PdZQwKso95RAPzCGWQBH5j6Q==}
@@ -1242,7 +1242,7 @@ packages:
 
 snapshots:
 
-  '@atproto/api@0.13.20':
+  '@atproto/api@0.13.23':
     dependencies:
       '@atproto/common-web': 0.3.1
       '@atproto/lexicon': 0.4.4
