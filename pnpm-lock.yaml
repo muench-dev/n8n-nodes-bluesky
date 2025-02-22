@@ -11,6 +11,9 @@ importers:
       '@atproto/api':
         specifier: ^0.13.18
         version: 0.13.32
+      n8n-workflow:
+        specifier: '*'
+        version: 1.70.0
       open-graph-scraper:
         specifier: ^6.8.2
         version: 6.9.0
@@ -30,9 +33,6 @@ importers:
       eslint-plugin-n8n-nodes-base:
         specifier: ^1.16.1
         version: 1.16.3(eslint@8.57.0)(typescript@5.7.3)
-      n8n-workflow:
-        specifier: '*'
-        version: 1.70.0
       prettier:
         specifier: ^3.3.2
         version: 3.4.2
