@@ -1,9 +1,13 @@
-import {
+import type {
 	INodeExecutionData,
 	IExecuteFunctions,
 	INodeType,
 	INodeTypeDescription,
 	INodeTypeBaseDescription,
+} from 'n8n-workflow';
+
+import {
+	NodeConnectionType
 } from 'n8n-workflow';
 
 import { AtpAgent, CredentialSession } from '@atproto/api';
@@ -39,8 +43,8 @@ export class BlueskyV2 implements INodeType {
 			defaults: {
 				name: 'Bluesky',
 			},
-			inputs: ['main'],
-			outputs: ['main'],
+			inputs: [NodeConnectionType.Main],
+			outputs: [NodeConnectionType.Main],
 			credentials: [
 				{
 					name: 'blueskyApi',

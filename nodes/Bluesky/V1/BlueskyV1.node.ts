@@ -1,9 +1,13 @@
-import {
+import type {
 	INodeExecutionData,
 	IExecuteFunctions,
 	INodeType,
 	INodeTypeDescription,
 	INodeTypeBaseDescription,
+} from 'n8n-workflow';
+
+import {
+	NodeConnectionType
 } from 'n8n-workflow';
 
 import {
@@ -27,8 +31,8 @@ export class BlueskyV1 implements INodeType {
 			defaults: {
 				name: 'Bluesky',
 			},
-			inputs: ['main'],
-			outputs: ['main'],
+			inputs: [NodeConnectionType.Main],
+			outputs: [NodeConnectionType.Main],
 			credentials: [
 				{
 					name: 'blueskyApi',
