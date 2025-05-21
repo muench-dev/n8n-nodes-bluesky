@@ -1,4 +1,4 @@
-import { INodeExecutionData, INodeProperties } from 'n8n-workflow';
+import { INodeExecutionData, INodeProperties, IDataObject } from 'n8n-workflow';
 import {
 	AppBskyActorGetProfile,
 	AppBskyGraphMuteActor,
@@ -132,7 +132,7 @@ export async function getProfileOperation(
 	});
 
 	returnData.push({
-		json: profileResponse.data,
+		json: profileResponse.data as unknown as IDataObject,
 	} as INodeExecutionData);
 
 	return returnData;
@@ -142,7 +142,7 @@ export async function blockOperation(agent: AtpAgent, did: string): Promise<INod
 	const returnData: INodeExecutionData[] = [];
 
 	const { uri } = await agent.app.bsky.graph.block.create(
-		{ repo: agent.did }, // owner DID
+		{ repo: agent.session!.did }, // owner DID
 		{
 			subject: did, // DID of the user to block
 			createdAt: new Date().toISOString(),
@@ -166,7 +166,7 @@ export async function unblockOperation(
 	const { rkey } = new AtUri(uri);
 
 	await agent.app.bsky.graph.block.delete({
-		repo: agent.did,
+		repo: agent.session!.did, // Assuming block records are in the user's own repo
 		rkey,
 	});
 
