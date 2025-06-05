@@ -32,6 +32,7 @@ import {
 	unblockOperation,
 } from './userOperations';
 import { getAuthorFeed, feedProperties, getTimeline } from './feedOperations';
+import { credentialTypeProperty } from './credentialTypes';
 
 export class BlueskyV2 implements INodeType {
 	description: INodeTypeDescription;
@@ -45,21 +46,43 @@ export class BlueskyV2 implements INodeType {
 			},
 			inputs: [NodeConnectionType.Main],
 			outputs: [NodeConnectionType.Main],
-			// We are not adding a new credential here, because the parent `Bluesky.node.ts` already defines it.
-			// We will access it from there.
-			properties: [resourcesProperty, ...userProperties, ...postProperties, ...feedProperties],
+			properties: [credentialTypeProperty, resourcesProperty, ...userProperties, ...postProperties, ...feedProperties],
+			credentials: [
+				{
+					name: 'blueskyApi',
+					displayName: 'Bluesky API (App Password)',
+					required: true,
+					displayOptions: {
+						show: {
+							credentialType: ['appPassword'],
+						},
+					},
+				} as INodeCredentialDescription,
+				{
+					name: 'blueskyOAuth2Api',
+					displayName: 'Bluesky API (OAuth2)',
+					required: true,
+					displayOptions: {
+						show: {
+							credentialType: ['oAuth2'],
+						},
+					},
+				} as INodeCredentialDescription,
+			] as INodeCredentialDescription[],
 		};
 	}
 
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
 		const items = this.getInputData();
 		const returnData: INodeExecutionData[] = [];
-		const authType = this.getNodeParameter('authType', 0) as string;
+		const credentialType = this.getNodeParameter('credentialType', 0) as string;
 
 		let agent: AtpAgent;
 		const operation = this.getNodeParameter('operation', 0) as string;
 
-		if (authType === 'appPassword') {
+		console.log(credentialType);
+
+		if (credentialType === 'appPassword') {
 			const credentials = (await this.getCredentials('blueskyApi')) as {
 				identifier: string;
 				appPassword: string;
@@ -95,7 +118,7 @@ export class BlueskyV2 implements INodeType {
 				identifier: loginIdentifier,
 				password: credentials.appPassword,
 			});
-		} else if (authType === 'oAuth2') {
+		} else if (credentialType === 'oAuth2') {
 			const oauth2Credentials = await this.getCredentials('blueskyOAuth2Api');
 			// Assuming the PDS URL is stored or can be derived.
 			// For OAuth2, the service URL might not be directly in the credential like for App Password.
