@@ -209,29 +209,30 @@ export async function postOperation(
 		}
 
 		if (websiteCard.fetchOpenGraphTags === true) {
-			const ogsResponse = await ogs({ url: websiteCard.uri })
-			if (ogsResponse.error) {
-				throw new Error(`Error fetching Open Graph tags: ${ogsResponse.error}`);
-			}
-			if (ogsResponse.result.ogImage) {
-				// create thumbBlob from ogsResult.result.ogImage
-				// get base64 image data from ogsResponse.result.ogImage.url
-
-				const imageDataResponse = await fetch(ogsResponse.result.ogImage[0].url)
-				if (!imageDataResponse.ok) {
-					throw new Error(`Error fetching image data: ${imageDataResponse.statusText}`);
+			try {
+				const ogsResponse = await ogs({ url: websiteCard.uri });
+				if (ogsResponse.error) {
+					throw new Error(`Error fetching Open Graph tags: ${ogsResponse.error}`);
 				}
-				// Create a n8n binary buffer from the image data
-				const thumbBlobArrayBuffer = await imageDataResponse.arrayBuffer();
-				thumbBlob = Buffer.from(thumbBlobArrayBuffer);
-				const { data } = await agent.uploadBlob(thumbBlob)
-				thumbBlob = data.blob;
-			}
-			if (ogsResponse.result.ogTitle) {
-				websiteCard.title = ogsResponse.result.ogTitle;
-			}
-			if (ogsResponse.result.ogDescription) {
-				websiteCard.description = ogsResponse.result.ogDescription;
+				if (ogsResponse.result.ogImage) {
+					const imageDataResponse = await fetch(ogsResponse.result.ogImage[0].url);
+					if (!imageDataResponse.ok) {
+					}
+					const thumbBlobArrayBuffer = await imageDataResponse.arrayBuffer();
+					thumbBlob = Buffer.from(thumbBlobArrayBuffer);
+					const { data } = await agent.uploadBlob(thumbBlob);
+					thumbBlob = data.blob;
+				}
+				if (ogsResponse.result.ogTitle) {
+					websiteCard.title = ogsResponse.result.ogTitle;
+				}
+				if (ogsResponse.result.ogDescription) {
+					websiteCard.description = ogsResponse.result.ogDescription;
+				} else {
+					websiteCard.description = '';
+				}
+			} catch (err: any) {
+				throw new Error(`Failed to fetch Open Graph tags for URL '${websiteCard.uri}': ${err?.message || err}`);
 			}
 		}
 
