@@ -39,14 +39,13 @@ export class BlueskyV2 implements INodeType {
 	constructor(baseDescription: INodeTypeBaseDescription) {
 		this.description = {
 			...baseDescription,
-			version: 2,
+			version: [2, 2.1],
 			defaults: {
 				name: 'Bluesky',
 			} as NodeDefaults,
 			usableAsTool: true,
 			inputs: [NodeConnectionType.Main],
 			outputs: [NodeConnectionType.Main],
-			properties: [credentialTypeProperty, resourcesProperty, ...userProperties, ...postProperties, ...feedProperties],
 			credentials: [
 				{
 					name: 'blueskyApi',
@@ -54,6 +53,17 @@ export class BlueskyV2 implements INodeType {
 					required: true,
 					displayOptions: {
 						show: {
+							'@version': [2],
+						},
+					},
+				} as INodeCredentialDescription,
+				{
+					name: 'blueskyApi',
+					displayName: 'Bluesky API (App Password)',
+					required: true,
+					displayOptions: {
+						show: {
+							'@version': [2.1],
 							credentialType: ['appPassword'],
 						},
 					},
@@ -64,11 +74,13 @@ export class BlueskyV2 implements INodeType {
 					required: true,
 					displayOptions: {
 						show: {
+							'@version': [2.1],
 							credentialType: ['oAuth2'],
 						},
 					},
 				} as INodeCredentialDescription,
 			] as INodeCredentialDescription[],
+			properties: [credentialTypeProperty, resourcesProperty, ...userProperties, ...postProperties, ...feedProperties],
 		} as INodeTypeDescription;
 	}
 
