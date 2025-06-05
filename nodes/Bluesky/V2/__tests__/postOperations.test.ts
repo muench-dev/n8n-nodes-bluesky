@@ -51,9 +51,48 @@ describe('postOperation', () => {
 
 		expect(mockAgent.post).toHaveBeenCalledTimes(1);
 		const postData = mockAgent.post.mock.calls[0][0];
-		expect(postData.embed).toBeDefined();
-		expect(postData.embed.external).toBeDefined();
-		expect(postData.embed.external.description).toBe('');
-		expect(postData.embed.external.title).toBe('Test Title'); // Ensure title is still set
+		expect(postData).toEqual({
+			langs: ['en'],
+			embed: {
+				$type: 'app.bsky.embed.external',
+				external: {
+					uri: 'http://example.com',
+					title: 'Test Title',
+					description: '',
+					thumb: 'test-blob',
+				},
+			},
+		});
+	});
+
+	it('should handle empty websiteCard.description', async () => {
+		const postText = 'Test post';
+		const langs = ['en'];
+		const websiteCard = {
+			uri: 'http://example.com',
+			fetchOpenGraphTags: false,
+			title: 'Test Title',
+			description: '',
+			thumbnailBinary: undefined,
+		};
+
+		await postOperation(mockAgent, postText, langs, websiteCard);
+
+		expect(mockAgent.post).toHaveBeenCalledTimes(1);
+		const postData = mockAgent.post.mock.calls[0][0];
+		expect(postData).toEqual({
+			text: postText,
+			langs: ['en'],
+			facets: undefined,
+			embed: {
+				$type: 'app.bsky.embed.external',
+				external: {
+					uri: 'http://example.com',
+					title: 'Test Title',
+					description: '',
+					thumb: undefined,
+				},
+			},
+		});
 	});
 });
