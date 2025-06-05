@@ -15,6 +15,8 @@ jobs:
           cache: 'pnpm'
       - name: Install dependencies
         run: pnpm install
+      - name: Run Jest Tests
+        run: pnpm run test
       - name: Lint
         run: pnpm run lint
       # TODO Add unit tests
