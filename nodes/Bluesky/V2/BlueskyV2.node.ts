@@ -3,8 +3,8 @@ import type {
 	IExecuteFunctions,
 	INodeType,
 	INodeTypeDescription,
-	INodeTypeBaseDescription, JsonObject, NodeApiError,
 	LoggerProxy as Logger,
+	INodeTypeBaseDescription, JsonObject, NodeApiError, INodeCredentialDescription, NodeDefaults,
 } from 'n8n-workflow';
 
 import { NodeConnectionType } from 'n8n-workflow';
@@ -43,7 +43,8 @@ export class BlueskyV2 implements INodeType {
 			version: 2,
 			defaults: {
 				name: 'Bluesky',
-			},
+			} as NodeDefaults,
+			usableAsTool: true,
 			inputs: [NodeConnectionType.Main],
 			outputs: [NodeConnectionType.Main],
 			properties: [credentialTypeProperty, resourcesProperty, ...userProperties, ...postProperties, ...feedProperties],
@@ -69,7 +70,7 @@ export class BlueskyV2 implements INodeType {
 					},
 				} as INodeCredentialDescription,
 			] as INodeCredentialDescription[],
-		};
+		} as INodeTypeDescription;
 	}
 
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
@@ -419,8 +420,6 @@ export class BlueskyV2 implements INodeType {
 				throw new NodeApiError(this.getNode(), error as JsonObject);
 			}
 		}
-
-		Logger.info('Node execution finished', { ...nodeMeta, itemsProcessed: items.length, itemsReturned: returnData.length });
 
 		return [returnData];
 	}
