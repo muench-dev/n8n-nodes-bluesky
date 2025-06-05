@@ -1,9 +1,9 @@
-import type {
+import {
 	INodeExecutionData,
 	IExecuteFunctions,
 	INodeType,
 	INodeTypeDescription,
-	INodeTypeBaseDescription, INodeCredentialDescription, NodeDefaults,
+	INodeTypeBaseDescription, INodeCredentialDescription, NodeDefaults, NodeOperationError,
 } from 'n8n-workflow';
 
 import { NodeConnectionType } from 'n8n-workflow';
@@ -160,7 +160,7 @@ export class BlueskyV2 implements INodeType {
 			// For now, we rely on setting the Authorization header, assuming xrpc client will pick it up.
 
 		} else {
-			throw new Error('Unsupported authentication type');
+			throw new NodeOperationError(this.getNode(), 'Unsupported authentication type');
 		}
 
 
