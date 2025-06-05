@@ -4,7 +4,7 @@ import type {
 	INodeType,
 	INodeTypeDescription,
 	LoggerProxy as Logger,
-	INodeTypeBaseDescription, JsonObject, NodeApiError, INodeCredentialDescription, NodeDefaults,
+	INodeTypeBaseDescription, INodeCredentialDescription, NodeDefaults,
 } from 'n8n-workflow';
 
 import { NodeConnectionType } from 'n8n-workflow';
