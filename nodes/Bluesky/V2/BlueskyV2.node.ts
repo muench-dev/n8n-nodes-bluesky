@@ -1,4 +1,4 @@
-import {
+import type {
 	INodeExecutionData,
 	IExecuteFunctions,
 	INodeType,
@@ -45,12 +45,8 @@ export class BlueskyV2 implements INodeType {
 			},
 			inputs: [NodeConnectionType.Main],
 			outputs: [NodeConnectionType.Main],
-			credentials: [
-				{
-					name: 'blueskyApi',
-					required: true,
-				},
-			],
+			// We are not adding a new credential here, because the parent `Bluesky.node.ts` already defines it.
+			// We will access it from there.
 			properties: [resourcesProperty, ...userProperties, ...postProperties, ...feedProperties],
 		};
 	}
@@ -58,28 +54,94 @@ export class BlueskyV2 implements INodeType {
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
 		const items = this.getInputData();
 		const returnData: INodeExecutionData[] = [];
+		const authType = this.getNodeParameter('authType', 0) as string;
 
-		// Load credentials
-		const credentials = (await this.getCredentials('blueskyApi')) as {
-			identifier: string;
-			appPassword: string;
-			serviceUrl: string;
-		};
-
+		let agent: AtpAgent;
 		const operation = this.getNodeParameter('operation', 0) as string;
-		const serviceUrl = new URL(credentials.serviceUrl.replace(/\/+$/, '')); // Ensure no trailing slash
 
-		const node = this.getNode();
-		const nodeMeta = { nodeName: node.name, nodeType: node.type, nodeId: node.id, operation };
+		if (authType === 'appPassword') {
+			const credentials = (await this.getCredentials('blueskyApi')) as {
+				identifier: string;
+				appPassword: string;
+				serviceUrl: string;
+			};
+			const serviceUrl = new URL(credentials.serviceUrl.replace(/\/+$/, '')); // Ensure no trailing slash
+			let loginIdentifier = credentials.identifier;
 
-		Logger.info('Initializing Bluesky session', { ...nodeMeta, serviceOrigin: serviceUrl.origin });
+			// Check if identifier is a handle (contains '.' and not 'did:')
+			if (loginIdentifier.includes('.') && !loginIdentifier.startsWith('did:')) {
+				try {
+					// Attempt to resolve handle
+					const tempAgentServiceUrl = new URL(credentials.serviceUrl.replace(/\/+$/, ''));
+					const tempSession = new CredentialSession(tempAgentServiceUrl);
+					const tempAgent = new AtpAgent(tempSession);
+					// Note: tempAgent does not need to be logged in to resolve a handle.
+					this.logger.debug(`Attempting to resolve handle: ${loginIdentifier}`);
+					const resolveResult = await tempAgent.resolveHandle({ handle: loginIdentifier });
+					if (resolveResult.success && resolveResult.data.did) {
+						this.logger.debug(`Handle resolved: ${loginIdentifier} -> ${resolveResult.data.did}`);
+						loginIdentifier = resolveResult.data.did;
+					} else {
+						this.logger.warn(`Failed to resolve handle ${loginIdentifier}. Proceeding with original identifier. Reason: ${resolveResult.success ? 'DID not found' : 'Resolution unsuccessful'}`);
+					}
+				} catch (error) {
+					this.logger.warn(`Error during handle resolution for ${loginIdentifier}: ${error.message}. Proceeding with original identifier.`);
+				}
+			}
 
-		const session = new CredentialSession(serviceUrl);
-		const agent = new AtpAgent(session);
-		await agent.login({
-			identifier: credentials.identifier,
-			password: credentials.appPassword,
-		});
+			const session = new CredentialSession(serviceUrl);
+			agent = new AtpAgent(session);
+			await agent.login({
+				identifier: loginIdentifier,
+				password: credentials.appPassword,
+			});
+		} else if (authType === 'oAuth2') {
+			const oauth2Credentials = await this.getCredentials('blueskyOAuth2Api');
+			// Assuming the PDS URL is stored or can be derived.
+			// For OAuth2, the service URL might not be directly in the credential like for App Password.
+			// This might need adjustment based on how PDS URL is determined with OAuth.
+			// For now, let's assume a default or a configured PDS URL if not in OAuth2 creds.
+			// This part is speculative and depends on Bluesky's OAuth implementation details.
+			// For the purpose of this example, we'll try to get it from the OAuth credential if available,
+			// or use a sensible default or require it as an additional node parameter.
+			// Let's assume for now the user is expected to have a blueskyApi credential selected
+			// even for OAuth2 to provide the serviceUrl, or it's a fixed URL.
+			// This needs clarification based on actual Bluesky OAuth flow.
+			// For now, we will try to get serviceUrl from blueskyApi if it exists,
+			// otherwise, we might need to add a new field or use a default.
+			// Let's assume 'https://bsky.social' as a fallback for the service URL for OAuth.
+			let serviceUrlString = 'https://bsky.social/xrpc'; // Default PDS for Bluesky
+			try {
+				const appPasswordCredentials = (await this.getCredentials('blueskyApi')) as { serviceUrl?: string };
+				if (appPasswordCredentials && appPasswordCredentials.serviceUrl) {
+					serviceUrlString = appPasswordCredentials.serviceUrl;
+				}
+			} catch (e) {
+				// If blueskyApi is not selected, or doesn't have serviceUrl, use default.
+				this.logger.warn(`Could not get serviceUrl from 'blueskyApi' credentials for OAuth2, using default. Error: ${e.message}`);
+			}
+
+			const serviceUrl = new URL(serviceUrlString.replace(/\/+$/, ''));
+			const session = new CredentialSession(serviceUrl);
+			agent = new AtpAgent(session);
+			agent.api.xrpc.setHeader('Authorization', `Bearer ${oauth2Credentials.accessToken}`);
+			// With OAuth2, the agent might not need a separate login call if the token itself is sufficient
+			// and represents an authenticated session. We might need to resume a session or ensure
+			// the agent is configured to use the bearer token directly.
+			// The @atproto/api might need a way to initialize AtpAgent with an existing access token
+			// without calling agent.login(). This depends on the library's capabilities.
+			// For now, setting the header directly is a common approach for HTTP clients.
+			// If @atproto/api's AtpAgent strictly requires a login method, this needs adjustment.
+			// A potential approach:
+			// If the agent allows setting session data directly:
+			// agent.session = { accessJwt: oauth2Credentials.accessToken, did: '', handle: '' ... };
+			// This is highly dependent on the @atproto/api library.
+			// For now, we rely on setting the Authorization header, assuming xrpc client will pick it up.
+
+		} else {
+			throw new Error('Unsupported authentication type');
+		}
+
 
 		Logger.info('Authenticated with Bluesky', { ...nodeMeta });
 

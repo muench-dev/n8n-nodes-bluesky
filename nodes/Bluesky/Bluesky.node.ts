@@ -14,6 +14,44 @@ export class Bluesky extends VersionedNodeType {
 			subtitle: '={{$parameter["operation"] + ": " + $parameter["resource"]}}',
 			description: 'Interact with the Bluesky social platform',
 			defaultVersion: 2,
+			credentials: [
+				{
+					name: 'blueskyApi',
+					required: true,
+					displayOptions: {
+						show: {
+							authType: ['appPassword'],
+						},
+					},
+				},
+				{
+					name: 'blueskyOAuth2Api',
+					required: true,
+					displayOptions: {
+						show: {
+							authType: ['oAuth2'],
+						},
+					},
+				},
+			],
+			properties: [
+				{
+					displayName: 'Authentication Type',
+					name: 'authType',
+					type: 'options',
+					options: [
+						{
+							name: 'App Password',
+							value: 'appPassword',
+						},
+						{
+							name: 'OAuth2',
+							value: 'oAuth2',
+						},
+					],
+					default: 'appPassword',
+				},
+			],
 		};
 
 		const nodeVersions: IVersionedNodeType['nodeVersions'] = {
