@@ -19,9 +19,9 @@
     "node": ">=18.10",
     "pnpm": ">=9.1"
   },
-  "packageManager": "pnpm@9.1.4",
   "main": "index.js",
   "scripts": {
+    "test": "jest",
     "preinstall": "npx only-allow pnpm",
     "clean": "rimraf dist/",
     "build": "npm run clean && tsc && npm run build:images",
