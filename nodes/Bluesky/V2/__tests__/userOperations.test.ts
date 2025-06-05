@@ -90,11 +90,11 @@ describe('UserOperations', () => {
 			const mockSuccessResponse = { success: true, headers: {} };
 			mockMute.mockResolvedValue(mockSuccessResponse);
 
-			const result = await muteOperation(agent, { actor: actorDid });
+			const result = await muteOperation(agent, actorDid);
 
 			// Check if agent.mute was called correctly
 			expect(mockMute).toHaveBeenCalledTimes(1);
-			expect(mockMute).toHaveBeenCalledWith({ actor: actorDid });
+			expect(mockMute).toHaveBeenCalledWith(actorDid);
 
 			// Check if the returned data is as expected (empty for mute)
 			// The operation itself returns a boolean indicating success.
@@ -108,13 +108,13 @@ describe('UserOperations', () => {
 			mockMute.mockResolvedValue(mockErrorResponse); // Simulating a resolved promise with a failure object, as per Bluesky's API client style
 
 			// Call muteOperation and expect it to throw an error
-			await expect(muteOperation(agent, { actor: actorDid }))
+			await expect(muteOperation(agent, actorDid))
 				.rejects
 				.toThrow(`Failed to mute user ${actorDid}: NetworkError - ${errorMessage}`);
 
 			// Check if agent.mute was called correctly
 			expect(mockMute).toHaveBeenCalledTimes(1);
-			expect(mockMute).toHaveBeenCalledWith({ actor: actorDid });
+			expect(mockMute).toHaveBeenCalledWith(actorDid);
 		});
 	});
 
@@ -127,11 +127,11 @@ describe('UserOperations', () => {
 			const mockSuccessResponse = { success: true, headers: {} };
 			mockUnmute.mockResolvedValue(mockSuccessResponse);
 
-			const result = await unmuteOperation(agent, { actor: actorDid });
+			const result = await unmuteOperation(agent, actorDid);
 
 			// Check if agent.unmute was called correctly
 			expect(mockUnmute).toHaveBeenCalledTimes(1);
-			expect(mockUnmute).toHaveBeenCalledWith({ actor: actorDid });
+			expect(mockUnmute).toHaveBeenCalledWith(actorDid);
 
 			// Check if the returned data is as expected (boolean true for success)
 			expect(result).toEqual(true);
@@ -144,13 +144,13 @@ describe('UserOperations', () => {
 			mockUnmute.mockResolvedValue(mockErrorResponse);
 
 			// Call unmuteOperation and expect it to throw an error
-			await expect(unmuteOperation(agent, { actor: actorDid }))
+			await expect(unmuteOperation(agent, actorDid))
 				.rejects
 				.toThrow(`Failed to unmute user ${actorDid}: UpstreamFailure - ${errorMessage}`);
 
 			// Check if agent.unmute was called correctly
 			expect(mockUnmute).toHaveBeenCalledTimes(1);
-			expect(mockUnmute).toHaveBeenCalledWith({ actor: actorDid });
+			expect(mockUnmute).toHaveBeenCalledWith(actorDid);
 		});
 	});
 
