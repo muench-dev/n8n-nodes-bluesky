@@ -3,7 +3,7 @@ import type {
 	IExecuteFunctions,
 	INodeType,
 	INodeTypeDescription,
-	INodeTypeBaseDescription, INodeCredentialDescription,
+	INodeTypeBaseDescription, INodeCredentialDescription, NodeDefaults,
 } from 'n8n-workflow';
 
 import { NodeConnectionType } from 'n8n-workflow';
@@ -42,7 +42,8 @@ export class BlueskyV2 implements INodeType {
 			version: 2,
 			defaults: {
 				name: 'Bluesky',
-			},
+			} as NodeDefaults,
+			usableAsTool: true,
 			inputs: [NodeConnectionType.Main],
 			outputs: [NodeConnectionType.Main],
 			properties: [credentialTypeProperty, resourcesProperty, ...userProperties, ...postProperties, ...feedProperties],
@@ -68,7 +69,7 @@ export class BlueskyV2 implements INodeType {
 					},
 				} as INodeCredentialDescription,
 			] as INodeCredentialDescription[],
-		};
+		} as INodeTypeDescription;
 	}
 
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
