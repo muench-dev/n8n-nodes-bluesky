@@ -75,12 +75,10 @@ export class BlueskyV2 implements INodeType {
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
 		const items = this.getInputData();
 		const returnData: INodeExecutionData[] = [];
-		const credentialType = this.getNodeParameter('credentialType', 0) as string;
+		const credentialType = this.getNodeParameter('credentialType', 0) as string | 'appPassword';
 
 		let agent: AtpAgent;
 		const operation = this.getNodeParameter('operation', 0) as string;
-
-		console.log(credentialType);
 
 		if (credentialType === 'appPassword') {
 			const credentials = (await this.getCredentials('blueskyApi')) as {
