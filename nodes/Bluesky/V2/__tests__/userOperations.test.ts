@@ -1,4 +1,4 @@
-import { AtpAgent, AppBskyActorDefs, AppBskyGraphDefs, ComAtprotoRepoStrongRef } from '@atproto/api';
+import { AtpAgent, AppBskyActorDefs } from '@atproto/api';
 import { muteOperation, unmuteOperation, getProfileOperation, blockOperation, unblockOperation } from '../userOperations';
 
 // Mock the entire @atproto/api module
@@ -179,7 +179,7 @@ describe('UserOperations', () => {
 			const mockSuccessResponse = { success: true, data: sampleProfileData, headers: {} };
 			mockGetProfile.mockResolvedValue(mockSuccessResponse);
 
-			const result = await getProfileOperation(agent, { actor: actorDid });
+			const result = await getProfileOperation(agent, actorDid);
 
 			expect(mockGetProfile).toHaveBeenCalledTimes(1);
 			expect(mockGetProfile).toHaveBeenCalledWith({ actor: actorDid });
@@ -191,7 +191,7 @@ describe('UserOperations', () => {
 			const mockErrorResponse = { success: false, error: 'NotFound', message: errorMessage };
 			mockGetProfile.mockResolvedValue(mockErrorResponse);
 
-			await expect(getProfileOperation(agent, { actor: actorDid }))
+			await expect(getProfileOperation(agent, actorDid))
 				.rejects
 				.toThrow(`Failed to get profile for ${actorDid}: NotFound - ${errorMessage}`);
 
@@ -219,7 +219,7 @@ describe('UserOperations', () => {
 			};
 			mockBlockCreate.mockResolvedValue(mockSuccessResponse);
 
-			const result = await blockOperation(agent, { subject: subjectDid });
+			const result = await blockOperation(agent, subjectDid);
 
 			expect(mockBlockCreate).toHaveBeenCalledTimes(1);
 			expect(mockBlockCreate).toHaveBeenCalledWith(
@@ -234,7 +234,7 @@ describe('UserOperations', () => {
 			const mockErrorResponse = { success: false, error: 'Forbidden', message: errorMessage };
 			mockBlockCreate.mockResolvedValue(mockErrorResponse);
 
-			await expect(blockOperation(agent, { subject: subjectDid }))
+			await expect(blockOperation(agent, subjectDid))
 				.rejects
 				.toThrow(`Failed to block user ${subjectDid}: Forbidden - ${errorMessage}`);
 
@@ -262,7 +262,7 @@ describe('UserOperations', () => {
 			const mockSuccessResponse = { success: true, headers: {} };
 			mockBlockDelete.mockResolvedValue(mockSuccessResponse);
 
-			const result = await unblockOperation(agent, { uri: blockUriToDelete });
+			const result = await unblockOperation(agent, blockUriToDelete);
 
 			expect(mockBlockDelete).toHaveBeenCalledTimes(1);
 			// The first argument for delete is { repo, collection, rkey, swapRecord?, swapCommit? }
@@ -281,7 +281,7 @@ describe('UserOperations', () => {
 			const mockErrorResponse = { success: false, error: 'NotFound', message: errorMessage };
 			mockBlockDelete.mockResolvedValue(mockErrorResponse);
 
-			await expect(unblockOperation(agent, { uri: blockUriToDelete }))
+			await expect(unblockOperation(agent, blockUriToDelete))
 				.rejects
 				.toThrow(`Failed to unblock user via record ${blockUriToDelete}: NotFound - ${errorMessage}`);
 
