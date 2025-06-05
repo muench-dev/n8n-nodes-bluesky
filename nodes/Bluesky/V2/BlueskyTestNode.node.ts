@@ -96,6 +96,7 @@ describe('BlueskyV2', () => {
 			getHelpers: jest.fn().mockReturnValue({
 				getBinaryDataBuffer: jest.fn(),
 			}),
+			continueOnFail: jest.fn().mockReturnValue(false),
 		} as unknown as IExecuteFunctions;
 	});
 

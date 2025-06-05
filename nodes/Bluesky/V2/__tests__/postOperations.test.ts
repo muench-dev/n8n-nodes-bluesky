@@ -3,7 +3,17 @@ import ogs from 'open-graph-scraper';
 import { AtpAgent } from '@atproto/api';
 
 jest.mock('open-graph-scraper');
-jest.mock('@atproto/api');
+jest.mock('@atproto/api', () => {
+	const originalModule = jest.requireActual('@atproto/api');
+	return {
+		...originalModule,
+		RichText: jest.fn().mockImplementation(({ text }) => ({
+			text: text,
+			facets: undefined, // As per current test expectations
+			detectFacets: jest.fn(),
+		})),
+	};
+});
 
 describe('postOperation', () => {
 	let mockAgent: jest.Mocked<AtpAgent>;
