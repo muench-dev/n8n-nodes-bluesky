@@ -232,6 +232,8 @@ export async function postOperation(
 			}
 			if (ogsResponse.result.ogDescription) {
 				websiteCard.description = ogsResponse.result.ogDescription;
+			} else {
+				websiteCard.description = '';
 			}
 		}
 
