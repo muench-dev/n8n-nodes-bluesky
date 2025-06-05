@@ -4,6 +4,7 @@ import type {
 	INodeType,
 	INodeTypeDescription,
 	INodeTypeBaseDescription,
+	NodeOperationError,
 } from 'n8n-workflow';
 
 import { NodeConnectionType } from 'n8n-workflow';
@@ -76,7 +77,8 @@ export class BlueskyV2 implements INodeType {
 		});
 
 		for (let i = 0; i < items.length; i++) {
-			switch (operation) {
+			try {
+				switch (operation) {
 				/**
 				 * Post operations
 				 */
@@ -206,6 +208,15 @@ export class BlueskyV2 implements INodeType {
 					break;
 
 				default:
+			}
+			} catch (error) {
+				// This node should never fail but we want to display the error
+				// message to help users debug their workflows.
+				if (this.continueOnFail()) {
+					this.helpers.executionApi.addExecutionError(new NodeOperationError(this.getNode(), items[i].json, `Failed to process item ${i} for operation '${operation}': ${error.message}`));
+					continue;
+				}
+				throw error;
 			}
 		}
 

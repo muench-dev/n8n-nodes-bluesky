@@ -164,6 +164,21 @@ export const postProperties: INodeProperties[] = [
 							},
 						}
 					},
+					{
+						displayName: 'Fallback to Link Facet on Error',
+						name: 'fallbackToLinkFacetOnError',
+						type: 'boolean',
+						default: false,
+						description: 'If true, creates a simple link facet if fetching website card details fails, instead of failing the post.',
+						displayOptions: {
+							show: {
+								// Show if websiteCard URI is not empty.
+								// This assumes 'uri' is a sibling field within the same 'details' collection.
+								// The path might need adjustment if 'uri' is at a different level.
+								'uri': [{value: "", condition: "ne"}]
+							},
+						},
+					}
 				],
 			},
 		],
@@ -186,6 +201,7 @@ export async function postOperation(
 		title: string | undefined;
 		uri: string | undefined;
 		fetchOpenGraphTags: boolean | undefined;
+		fallbackToLinkFacetOnError?: boolean;
 	},
 ): Promise<INodeExecutionData[]> {
 	const returnData: INodeExecutionData[] = [];
@@ -200,50 +216,65 @@ export async function postOperation(
 	};
 
 	if (websiteCard?.uri) {
-		let thumbBlob = undefined;
-		if (websiteCard.thumbnailBinary) {
-			const uploadResponse = await agent.uploadBlob(websiteCard.thumbnailBinary, {
-				encoding: 'image/png', // Adjust based on expected image type
-			});
-			thumbBlob = uploadResponse.data.blob;
-		}
+		try {
+			let thumbBlob = undefined;
+			// Use a temporary variable for websiteCard title and description
+			// as they might be updated by OGS and we need the original in case of fallback.
+			let cardTitle = websiteCard.title;
+			let cardDescription = websiteCard.description;
 
-		if (websiteCard.fetchOpenGraphTags === true) {
-			const ogsResponse = await ogs({ url: websiteCard.uri })
-			if (ogsResponse.error) {
-				throw new Error(`Error fetching Open Graph tags: ${ogsResponse.error}`);
+			if (websiteCard.thumbnailBinary) {
+				const uploadResponse = await agent.uploadBlob(websiteCard.thumbnailBinary, {
+					encoding: 'image/png', // Adjust based on expected image type
+				});
+				thumbBlob = uploadResponse.data.blob;
 			}
-			if (ogsResponse.result.ogImage) {
-				// create thumbBlob from ogsResult.result.ogImage
-				// get base64 image data from ogsResponse.result.ogImage.url
 
-				const imageDataResponse = await fetch(ogsResponse.result.ogImage[0].url)
-				if (!imageDataResponse.ok) {
-					throw new Error(`Error fetching image data: ${imageDataResponse.statusText}`);
+			if (websiteCard.fetchOpenGraphTags === true) {
+				const ogsResponse = await ogs({ url: websiteCard.uri });
+				if (ogsResponse.error || !ogsResponse.result.success) {
+					throw new Error(`Error fetching Open Graph tags: ${ogsResponse.result?.ogTitle || 'Unknown error'}`);
 				}
-				// Create a n8n binary buffer from the image data
-				const thumbBlobArrayBuffer = await imageDataResponse.arrayBuffer();
-				thumbBlob = Buffer.from(thumbBlobArrayBuffer);
-				const { data } = await agent.uploadBlob(thumbBlob)
-				thumbBlob = data.blob;
+				if (ogsResponse.result.ogImage?.length) {
+					const imageUrl = ogsResponse.result.ogImage[0].url;
+					const imageDataResponse = await fetch(imageUrl);
+					if (!imageDataResponse.ok) {
+						throw new Error(`Error fetching image data from ${imageUrl}: ${imageDataResponse.statusText}`);
+					}
+					const thumbBlobArrayBuffer = await imageDataResponse.arrayBuffer();
+					const imageBuffer = Buffer.from(thumbBlobArrayBuffer);
+					const { data } = await agent.uploadBlob(imageBuffer); // MIME type auto-detected by agent
+					thumbBlob = data.blob;
+				}
+				if (ogsResponse.result.ogTitle) {
+					cardTitle = ogsResponse.result.ogTitle;
+				}
+				if (ogsResponse.result.ogDescription) {
+					cardDescription = ogsResponse.result.ogDescription;
+				}
 			}
-			if (ogsResponse.result.ogTitle) {
-				websiteCard.title = ogsResponse.result.ogTitle;
-			}
-			if (ogsResponse.result.ogDescription) {
-				websiteCard.description = ogsResponse.result.ogDescription;
+
+			postData.embed = {
+				$type: 'app.bsky.embed.external',
+				external: {
+					uri: websiteCard.uri,
+					title: cardTitle,
+					description: cardDescription,
+					thumb: thumbBlob,
+				},
+			};
+		} catch (error) {
+			if (websiteCard.fallbackToLinkFacetOnError) {
+				console.warn(`Website card creation for "${websiteCard.uri}" failed: ${error.message}. Posting without card embed (fallback enabled).`);
+				postData.embed = undefined; // Ensure embed is not set
+				// The original rt.detectFacets() on postText handles existing links in text.
+				// If the card URI was also in the text as a plain URL, it's already faceted.
+			} else {
+				// Fallback not enabled, re-throw the error to fail the operation.
+				// It's good practice to wrap the original error or provide a more specific one.
+				throw new Error(`Failed to create website card for "${websiteCard.uri}": ${error.message}`);
 			}
 		}
-
-		postData.embed = {
-			$type: 'app.bsky.embed.external',
-			external: {
-				uri: websiteCard.uri,
-				title: websiteCard.title,
-				description: websiteCard.description,
-				thumb: thumbBlob,
-			},
-		};
 	}
 
 	const postResponse: { uri: string; cid: string } = await agent.post(postData);
