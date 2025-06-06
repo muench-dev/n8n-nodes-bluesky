@@ -62,6 +62,7 @@ describe('postOperation', () => {
 					thumb: 'test-blob',
 				},
 			},
+			text: "Test post"
 		});
 	});
 
@@ -81,9 +82,6 @@ describe('postOperation', () => {
 		expect(mockAgent.post).toHaveBeenCalledTimes(1);
 		const postData = mockAgent.post.mock.calls[0][0];
 		expect(postData).toEqual({
-			text: postText,
-			langs: ['en'],
-			facets: undefined,
 			embed: {
 				$type: 'app.bsky.embed.external',
 				external: {
@@ -93,6 +91,9 @@ describe('postOperation', () => {
 					thumb: undefined,
 				},
 			},
+			facets: undefined,
+			text: postText,
+			langs: ['en'],
 		});
 	});
 });

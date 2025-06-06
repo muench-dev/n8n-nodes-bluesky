@@ -96,6 +96,7 @@ describe('BlueskyV2', () => {
 			getHelpers: jest.fn().mockReturnValue({
 				getBinaryDataBuffer: jest.fn(),
 			}),
+			continueOnFail: jest.fn().mockReturnValue(false), // Add this line
 		} as unknown as IExecuteFunctions;
 	});
 
@@ -159,7 +160,7 @@ describe('BlueskyV2', () => {
 
 			// Assuming the operation should return something, even if not { success: true }
 			// For now, primarily check if the agent method was called.
-			// expect(result[0][0].json.success).toBe(true); 
+			// expect(result[0][0].json.success).toBe(true);
 			expect(mockLoginInstance).toHaveBeenCalled();
 			expect(mockDeletePostInstance).toHaveBeenCalledWith('at://did:plc:test-repo/app.bsky.feed.post/123');
 		});
@@ -387,7 +388,7 @@ describe('BlueskyV2', () => {
 				if (name === 'did') return 'did:plc:target-to-mute';
 				return null;
 			});
-			mockMuteInstance.mockResolvedValue({ success: true }); 
+			mockMuteInstance.mockResolvedValue({ success: true });
 
 			const result = (await node.execute.call(executeFunctions)) as INodeExecutionData[][];
 			expect(result[0][0].json.success).toBe(true);

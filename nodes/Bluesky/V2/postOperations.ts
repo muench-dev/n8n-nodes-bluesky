@@ -194,7 +194,7 @@ export async function postOperation(
 	await rt.detectFacets(agent);
 
 	let postData: any = {
-		text: rt.text,
+		text: rt.text || postText,
 		langs: langs,
 		facets: rt.facets,
 	};
