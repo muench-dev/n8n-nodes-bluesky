@@ -175,6 +175,60 @@ export const postProperties: INodeProperties[] = [
 			},
 		},
 	},
+		{
+			displayName: 'Image',
+			name: 'image',
+			type: 'fixedCollection',
+			default: {},
+			placeholder: 'Add Image',
+			options: [
+				{
+					displayName: 'Details',
+					name: 'details',
+					values: [
+						{
+							displayName: 'ALT',
+							name: 'alt',
+							type: 'string',
+							default: '',
+							required: true,
+						},
+						{
+							displayName: 'mimeType',
+							name: 'mimeType',
+							type: 'string',
+							default: '',
+							required: true,
+						},
+						{
+							displayName: 'Width',
+							name: 'width',
+							type: 'number',
+							default: 400,
+						},
+						{
+							displayName: 'Height',
+							name: 'height',
+							type: 'number',
+							default: 300,
+						},
+						{
+							displayName: 'Binary Property',
+							name: 'binary',
+							type: 'string',
+							default: 'data',
+							description: 'Name of the binary property containing the image',
+						},
+					],
+				},
+			],
+			displayOptions: {
+				show: {
+					resource: ['post'],
+					operation: ['post'],
+				},
+			},
+		},
 ];
 
 /**
@@ -224,6 +278,13 @@ export async function postOperation(
 		uri: string | undefined;
 		fetchOpenGraphTags: boolean | undefined;
 	},
+	image?: {
+		alt: string | undefined;
+		mimeType: string | undefined;
+		binary: Buffer | undefined;
+		width: number | undefined;
+		height: number | undefined;
+	},
 ): Promise<INodeExecutionData[]> {
 	const returnData: INodeExecutionData[] = [];
 
@@ -240,6 +301,27 @@ export async function postOperation(
 		langs: langs,
 		facets: rt.facets,
 	};
+
+	if (image) {
+		let imageBlob = undefined;
+		if (image.binary) {
+			const uploadResponse = await agent.uploadBlob(image.binary, {
+				encoding: image.mimeType, // Adjust based on expected image type
+			});
+			imageBlob = uploadResponse.data.blob;
+			postData.embed = {
+				$type: 'app.bsky.embed.images',
+				images: [{
+					alt: image.alt,
+					image: imageBlob, // image blob
+					aspectRatio : {
+						width: image.width,
+						height: image.height,
+					}
+				}],
+			};
+		}
+	}
 
 	if (websiteCard?.uri) {
 		// Validate URL before proceeding
