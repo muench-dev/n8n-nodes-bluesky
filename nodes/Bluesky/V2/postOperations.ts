@@ -177,6 +177,19 @@ export const postProperties: INodeProperties[] = [
 	},
 ];
 
+async function resizeImageIfNeeded(imageBuffer: Buffer, maxWidth: number, maxSizeBytes: number): Promise<Buffer> {
+	if (imageBuffer.length > maxSizeBytes) {
+		try {
+			return await sharp(imageBuffer)
+				.resize({ width: maxWidth, withoutEnlargement: true, fit: 'inside' })
+				.toBuffer();
+		} catch (error: any) {
+			console.warn(`Failed to resize image: ${error.message}. Returning original image.`);
+		}
+	}
+	return imageBuffer;
+}
+
 export async function postOperation(
 	agent: AtpAgent,
 	postText: string,
@@ -202,22 +215,10 @@ export async function postOperation(
 
 	if (websiteCard?.uri) {
 		let thumbBlob = undefined;
+		const imageSizeLimit = 976.56 * 1024; // 976.56KB in bytes
+		const maxWidth = 1000;
 		if (websiteCard.thumbnailBinary) {
-			const imageSizeLimit = 976.56 * 1024; // 976.56KB in bytes
-			if (websiteCard.thumbnailBinary.length > imageSizeLimit) {
-				try {
-					// console.warn(`Image size (${websiteCard.thumbnailBinary.length} bytes) exceeds limit (${imageSizeLimit} bytes). Attempting to resize.`);
-					const resizedImageBuffer = await sharp(websiteCard.thumbnailBinary)
-						.resize({ width: 1000, withoutEnlargement: true, fit: 'inside' })
-						.toBuffer();
-					websiteCard.thumbnailBinary = resizedImageBuffer;
-					// console.warn(`Image resized successfully. New size: ${websiteCard.thumbnailBinary.length} bytes`);
-				} catch (error: any) {
-					console.warn(
-						`Failed to resize image: ${error.message}. Attempting to upload original image.`,
-					);
-				}
-			}
+			websiteCard.thumbnailBinary = await resizeImageIfNeeded(websiteCard.thumbnailBinary, maxWidth, imageSizeLimit);
 			const uploadResponse = await agent.uploadBlob(websiteCard.thumbnailBinary, {
 				encoding: 'image/png', // Adjust based on expected image type
 			});
@@ -228,27 +229,30 @@ export async function postOperation(
 			try {
 				const ogsResponse = await ogs({ url: websiteCard.uri });
 				if (ogsResponse.error) {
-					throw new Error(`Error fetching Open Graph tags: ${ogsResponse.error}`);
-				}
-				if (ogsResponse.result.ogImage) {
-					const imageDataResponse = await fetch(ogsResponse.result.ogImage[0].url);
-					if (!imageDataResponse.ok) {
-					}
-					const thumbBlobArrayBuffer = await imageDataResponse.arrayBuffer();
-					thumbBlob = Buffer.from(thumbBlobArrayBuffer);
-					const { data } = await agent.uploadBlob(thumbBlob);
-					thumbBlob = data.blob;
-				}
-				if (ogsResponse.result.ogTitle) {
-					websiteCard.title = ogsResponse.result.ogTitle;
-				}
-				if (ogsResponse.result.ogDescription) {
-					websiteCard.description = ogsResponse.result.ogDescription;
+					console.error(`Error fetching Open Graph tags: ${ogsResponse.error}`);
 				} else {
-					websiteCard.description = '';
+					if (ogsResponse.result.ogImage) {
+						const imageUrl = ogsResponse.result.ogImage[0].url;
+						const imageDataResponse = await fetch(imageUrl);
+						if (imageDataResponse.ok) {
+							const thumbBlobArrayBuffer = await imageDataResponse.arrayBuffer();
+							let thumbBuffer = Buffer.from(thumbBlobArrayBuffer);
+							thumbBuffer = await resizeImageIfNeeded(thumbBuffer, maxWidth, imageSizeLimit);
+							const { data } = await agent.uploadBlob(thumbBuffer);
+							thumbBlob = data.blob;
+						}
+					}
+					if (ogsResponse.result.ogTitle) {
+						websiteCard.title = ogsResponse.result.ogTitle;
+					}
+					if (ogsResponse.result.ogDescription) {
+						websiteCard.description = ogsResponse.result.ogDescription;
+					} else {
+						websiteCard.description = '';
+					}
 				}
 			} catch (err: any) {
-				throw new Error(`Failed to fetch Open Graph tags for URL '${websiteCard.uri}': ${err?.message || err}`);
+				console.error(`Failed to fetch Open Graph tags for URL '${websiteCard.uri}': ${err?.message || err}`);
 			}
 		}
 
