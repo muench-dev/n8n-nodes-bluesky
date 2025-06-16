@@ -1,4 +1,5 @@
 import { AtpAgent, RichText } from '@atproto/api';
+import sharp from 'sharp';
 import { INodeExecutionData, INodeProperties } from 'n8n-workflow';
 import { getLanguageOptions } from './languages';
 import ogs from 'open-graph-scraper';
@@ -202,6 +203,21 @@ export async function postOperation(
 	if (websiteCard?.uri) {
 		let thumbBlob = undefined;
 		if (websiteCard.thumbnailBinary) {
+			const imageSizeLimit = 976.56 * 1024; // 976.56KB in bytes
+			if (websiteCard.thumbnailBinary.length > imageSizeLimit) {
+				try {
+					// console.warn(`Image size (${websiteCard.thumbnailBinary.length} bytes) exceeds limit (${imageSizeLimit} bytes). Attempting to resize.`);
+					const resizedImageBuffer = await sharp(websiteCard.thumbnailBinary)
+						.resize({ width: 1000, withoutEnlargement: true, fit: 'inside' })
+						.toBuffer();
+					websiteCard.thumbnailBinary = resizedImageBuffer;
+					// console.warn(`Image resized successfully. New size: ${websiteCard.thumbnailBinary.length} bytes`);
+				} catch (error: any) {
+					console.warn(
+						`Failed to resize image: ${error.message}. Attempting to upload original image.`,
+					);
+				}
+			}
 			const uploadResponse = await agent.uploadBlob(websiteCard.thumbnailBinary, {
 				encoding: 'image/png', // Adjust based on expected image type
 			});
