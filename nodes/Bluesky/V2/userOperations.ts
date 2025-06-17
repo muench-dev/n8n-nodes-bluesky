@@ -38,14 +38,12 @@ export const userProperties: INodeProperties[] = [
 				description: 'Muting a user hides their posts from your feeds',
 				action: 'Mute a user',
 			},
-			/*
-			Find an easy way to resolve the uri to provide a better user experience
 			{
 				name: 'Un-Block User',
 				value: 'unblock',
 				description: 'Unblocking a user restores interaction and shows the user in the client experience',
 				action: 'Unblock a user',
-			},*/
+			},
 			{
 				name: 'Un-Mute User',
 				value: 'unmute',
@@ -105,7 +103,10 @@ export async function muteOperation(agent: AtpAgent, did: string): Promise<INode
 	const muteResponse: AppBskyGraphMuteActor.Response = await agent.mute(did);
 
 	returnData.push({
-		json: muteResponse as Object,
+		json: {
+			did: did,
+			success: muteResponse.success !== undefined ? muteResponse.success : true,
+		} as IDataObject,
 	} as INodeExecutionData);
 
 	return returnData;
@@ -116,7 +117,10 @@ export async function unmuteOperation(agent: AtpAgent, did: string): Promise<INo
 	const unmuteResponse: AppBskyGraphUnmuteActor.Response = await agent.unmute(did);
 
 	returnData.push({
-		json: unmuteResponse as Object,
+		json: {
+			did: did,
+			success: unmuteResponse.success !== undefined ? unmuteResponse.success : true,
+		} as IDataObject,
 	} as INodeExecutionData);
 
 	return returnData;
