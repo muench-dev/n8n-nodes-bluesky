@@ -157,7 +157,7 @@ export const postProperties: INodeProperties[] = [
 						displayName: 'Binary Property',
 						name: 'thumbnailBinaryProperty',
 						type: 'string',
-						default: 'data',
+						default: '',
 						description: 'Name of the binary property containing the thumbnail image',
 						displayOptions: {
 							show: {
@@ -177,17 +177,40 @@ export const postProperties: INodeProperties[] = [
 	},
 ];
 
+/**
+ * Resize an image if it exceeds the specified size or width.
+ *
+ * @link https://github.com/lovell/sharp/issues/1667
+ *
+ * @param imageBuffer
+ * @param maxWidth
+ * @param maxSizeBytes
+ */
 async function resizeImageIfNeeded(imageBuffer: Buffer, maxWidth: number, maxSizeBytes: number): Promise<Buffer> {
-	if (imageBuffer.length > maxSizeBytes) {
+	let quality = 90;
+	let buffer = imageBuffer;
+	const minQuality = 40;
+	const drop = 5;
+
+	while (buffer.length > maxSizeBytes && quality >= minQuality) {
 		try {
-			return await sharp(imageBuffer)
+			buffer = await sharp(imageBuffer)
 				.resize({ width: maxWidth, withoutEnlargement: true, fit: 'inside' })
+				.jpeg({ quality })
 				.toBuffer();
 		} catch (error: any) {
-			console.warn(`Failed to resize image: ${error.message}. Returning original image.`);
+			console.warn(`Failed to resize image at quality ${quality}: ${error.message}. Returning original image.`);
+			break;
 		}
+		if (buffer.length <= maxSizeBytes) {
+			return buffer;
+		}
+		quality -= drop;
 	}
-	return imageBuffer;
+	if (buffer.length > maxSizeBytes) {
+		console.warn(`Image could not be resized below ${maxSizeBytes} bytes. Returning best effort.`);
+	}
+	return buffer;
 }
 
 export async function postOperation(
@@ -205,7 +228,12 @@ export async function postOperation(
 	const returnData: INodeExecutionData[] = [];
 
 	let rt = new RichText({ text: postText });
-	await rt.detectFacets(agent);
+	try {
+		await rt.detectFacets(agent);
+	} catch (facetsErr: any) {
+		console.error(`Failed to detect facets in post text: ${facetsErr?.message || facetsErr}`);
+		// Continue without facets if detection fails
+	}
 
 	let postData: any = {
 		text: rt.text || postText,
@@ -214,36 +242,45 @@ export async function postOperation(
 	};
 
 	if (websiteCard?.uri) {
+		// Validate URL before proceeding
+		try {
+			new URL(websiteCard.uri);
+		} catch (error) {
+			throw new Error(`Invalid URL provided: ${websiteCard.uri}`);
+		}
+
 		let thumbBlob = undefined;
 		const imageSizeLimit = 976.56 * 1024; // 976.56KB in bytes
 		const maxWidth = 1000;
-		if (websiteCard.thumbnailBinary) {
-			websiteCard.thumbnailBinary = await resizeImageIfNeeded(websiteCard.thumbnailBinary, maxWidth, imageSizeLimit);
-			const uploadResponse = await agent.uploadBlob(websiteCard.thumbnailBinary, {
-				encoding: 'image/png', // Adjust based on expected image type
-			});
-			thumbBlob = uploadResponse.data.blob;
-		}
 
 		if (websiteCard.fetchOpenGraphTags === true) {
 			try {
 				const ogsResponse = await ogs({ url: websiteCard.uri });
 				if (ogsResponse.error) {
 					console.error(`Error fetching Open Graph tags: ${ogsResponse.error}`);
+					if (!websiteCard.title) {
+						websiteCard.title = websiteCard.uri || 'Untitled';
+					}
 				} else {
 					if (ogsResponse.result.ogImage) {
-						const imageUrl = ogsResponse.result.ogImage[0].url;
-						const imageDataResponse = await fetch(imageUrl);
-						if (imageDataResponse.ok) {
-							const thumbBlobArrayBuffer = await imageDataResponse.arrayBuffer();
-							let thumbBuffer = Buffer.from(thumbBlobArrayBuffer);
-							thumbBuffer = await resizeImageIfNeeded(thumbBuffer, maxWidth, imageSizeLimit);
-							const { data } = await agent.uploadBlob(thumbBuffer);
-							thumbBlob = data.blob;
+						try {
+							const imageUrl = ogsResponse.result.ogImage[0].url;
+							const imageDataResponse = await fetch(imageUrl);
+							if (imageDataResponse.ok) {
+								const thumbBlobArrayBuffer = await imageDataResponse.arrayBuffer();
+								let thumbBuffer = Buffer.from(thumbBlobArrayBuffer);
+								thumbBuffer = await resizeImageIfNeeded(thumbBuffer, maxWidth, imageSizeLimit);
+								const { data } = await agent.uploadBlob(thumbBuffer);
+								thumbBlob = data.blob;
+							}
+						} catch (imageErr: any) {
+							throw new Error(`Failed to fetch or process image from Open Graph tags: ${imageErr?.message || imageErr}`);
 						}
 					}
 					if (ogsResponse.result.ogTitle) {
 						websiteCard.title = ogsResponse.result.ogTitle;
+					} else if (!websiteCard.title) {
+						websiteCard.title = websiteCard.uri || 'Untitled';
 					}
 					if (ogsResponse.result.ogDescription) {
 						websiteCard.description = ogsResponse.result.ogDescription;
@@ -253,17 +290,48 @@ export async function postOperation(
 				}
 			} catch (err: any) {
 				console.error(`Failed to fetch Open Graph tags for URL '${websiteCard.uri}': ${err?.message || err}`);
+				throw err;
 			}
+		} else if (websiteCard.thumbnailBinary) {
+			// Only upload image if provided and not fetching OG tags
+			try {
+				websiteCard.thumbnailBinary = await resizeImageIfNeeded(websiteCard.thumbnailBinary, maxWidth, imageSizeLimit);
+				const uploadResponse = await agent.uploadBlob(websiteCard.thumbnailBinary);
+				thumbBlob = uploadResponse.data.blob;
+			} catch (thumbErr: any) {
+				console.error(`Failed to process or upload thumbnail: ${thumbErr?.message || thumbErr}`);
+				// Don't throw here, continue with the post without the thumbnail
+			}
+		}
+
+		// Define the thumbnail for the embed
+		if (websiteCard.fetchOpenGraphTags === false) {
+			// handle thumbnailBinary
+			if (websiteCard.thumbnailBinary && !thumbBlob) {
+				try {
+					websiteCard.thumbnailBinary = await resizeImageIfNeeded(websiteCard.thumbnailBinary, maxWidth, imageSizeLimit);
+					const uploadResponse = await agent.uploadBlob(websiteCard.thumbnailBinary);
+					thumbBlob = uploadResponse.data.blob;
+				} catch (thumbErr: any) {
+					console.error(`Failed to process or upload thumbnail: ${thumbErr?.message || thumbErr}`);
+				}
+			}
+		}
+
+		// Always include thumb, even if undefined
+		const externalEmbed: any = {
+			uri: websiteCard.uri,
+			title: websiteCard.title,
+			description: websiteCard.description,
+		};
+
+		if (thumbBlob) {
+			externalEmbed.thumb = thumbBlob;
 		}
 
 		postData.embed = {
 			$type: 'app.bsky.embed.external',
-			external: {
-				uri: websiteCard.uri,
-				title: websiteCard.title,
-				description: websiteCard.description,
-				thumb: thumbBlob,
-			},
+			external: externalEmbed,
 		};
 	}
 

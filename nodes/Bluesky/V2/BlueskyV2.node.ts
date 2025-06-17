@@ -97,6 +97,7 @@ export class BlueskyV2 implements INodeType {
 							};
 						};
 
+						// Handle thumbnail binary data if provided
 						let thumbnailBinary: Buffer | undefined;
 						if (websiteCardDetails.details?.thumbnailBinaryProperty
 							  && websiteCardDetails.details?.fetchOpenGraphTags === false
