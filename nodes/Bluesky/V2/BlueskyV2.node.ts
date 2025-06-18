@@ -108,12 +108,18 @@ export class BlueskyV2 implements INodeType {
 							);
 						}
 
+						let websiteCardUri = websiteCardDetails.details?.uri;
+						if (websiteCardUri && !/^https?:\/\//i.test(websiteCardUri)) {
+							// Skip relative URLs to prevent TypeError in postOperation
+							websiteCardUri = undefined;
+						}
+
 						const postData = await postOperation(
 							agent,
 							postText,
 							langs,
 							{
-								uri: websiteCardDetails.details?.uri,
+								uri: websiteCardUri,
 								title: websiteCardDetails.details?.title,
 								description: websiteCardDetails.details?.description,
 								thumbnailBinary: thumbnailBinary,
