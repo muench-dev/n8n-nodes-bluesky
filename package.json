@@ -64,6 +64,6 @@
   "dependencies": {
     "@atproto/api": "^0.15.8",
     "open-graph-scraper": "^6.8.2",
-    "sharp": "^0.33.0"
+    "sharp": "^0.34.2"
   }
 }
