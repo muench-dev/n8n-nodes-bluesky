@@ -3,7 +3,7 @@ import {
 	IExecuteFunctions,
 	INodeType,
 	INodeTypeDescription,
-	INodeTypeBaseDescription, INodeCredentialDescription, NodeDefaults, NodeOperationError,
+	INodeTypeBaseDescription, INodeCredentialDescription, NodeDefaults, JsonObject, NodeApiError, NodeOperationError,
 } from 'n8n-workflow';
 
 import { NodeConnectionType } from 'n8n-workflow';
@@ -177,136 +177,154 @@ export class BlueskyV2 implements INodeType {
 
 
 		for (let i = 0; i < items.length; i++) {
-			switch (operation) {
-				/**
-				 * Post operations
-				 */
+			try {
+				switch (operation) {
+					/**
+					 * Post operations
+					 */
 
-				case 'post':
-					const postText = this.getNodeParameter('postText', i) as string;
-					const langs = this.getNodeParameter('langs', i) as string[];
+					case 'post':
+						const postText = this.getNodeParameter('postText', i) as string;
+						const langs = this.getNodeParameter('langs', i) as string[];
 
-					// Get website card details if provided
-					const websiteCardDetails = this.getNodeParameter('websiteCard', i, {}) as {
-						details?: {
-							uri: string;
-							title: string;
-							description: string;
-							thumbnailBinaryProperty?: string;
-							fetchOpenGraphTags: boolean;
+						// Get website card details if provided
+						const websiteCardDetails = this.getNodeParameter('websiteCard', i, {}) as {
+							details?: {
+								uri: string;
+								title: string;
+								description: string;
+								thumbnailBinaryProperty?: string;
+								fetchOpenGraphTags: boolean;
+							};
 						};
-					};
 
-					let thumbnailBinary: Buffer | undefined;
-					if (websiteCardDetails.details?.thumbnailBinaryProperty
-						  && websiteCardDetails.details?.fetchOpenGraphTags === false
-					) {
-						thumbnailBinary = await this.helpers.getBinaryDataBuffer(
-							i,
-							websiteCardDetails.details.thumbnailBinaryProperty as string
-						);
-					}
-
-					const postData = await postOperation(
-						agent,
-						postText,
-						langs,
-						{
-							uri: websiteCardDetails.details?.uri,
-							title: websiteCardDetails.details?.title,
-							description: websiteCardDetails.details?.description,
-							thumbnailBinary: thumbnailBinary,
-							fetchOpenGraphTags: websiteCardDetails.details?.fetchOpenGraphTags,
+						// Handle thumbnail binary data if provided
+						let thumbnailBinary: Buffer | undefined;
+						if (websiteCardDetails.details?.thumbnailBinaryProperty
+							  && websiteCardDetails.details?.fetchOpenGraphTags === false
+						) {
+							thumbnailBinary = await this.helpers.getBinaryDataBuffer(
+								i,
+								websiteCardDetails.details.thumbnailBinaryProperty as string
+							);
 						}
-					);
 
-					returnData.push(...postData);
-					break;
+						let websiteCardUri = websiteCardDetails.details?.uri;
+						if (websiteCardUri && !/^https?:\/\//i.test(websiteCardUri)) {
+							// Skip relative URLs to prevent TypeError in postOperation
+							websiteCardUri = undefined;
+						}
 
-				case 'deletePost':
-					const uriDeletePost = this.getNodeParameter('uri', i) as string;
-					const deletePostData = await deletePostOperation(agent, uriDeletePost);
-					returnData.push(...deletePostData);
-					break;
+						const postData = await postOperation(
+							agent,
+							postText,
+							langs,
+							{
+								uri: websiteCardUri,
+								title: websiteCardDetails.details?.title,
+								description: websiteCardDetails.details?.description,
+								thumbnailBinary: thumbnailBinary,
+								fetchOpenGraphTags: websiteCardDetails.details?.fetchOpenGraphTags,
+							}
+						);
 
-				case 'like':
-					const uriLike = this.getNodeParameter('uri', i) as string;
-					const cidLike = this.getNodeParameter('cid', i) as string;
-					const likeData = await likeOperation(agent, uriLike, cidLike);
-					returnData.push(...likeData);
-					break;
+						returnData.push(...postData);
+						break;
 
-				case 'deleteLike':
-					const uriDeleteLike = this.getNodeParameter('uri', i) as string;
-					const deleteLikeData = await deleteLikeOperation(agent, uriDeleteLike);
-					returnData.push(...deleteLikeData);
-					break;
+					case 'deletePost':
+						const uriDeletePost = this.getNodeParameter('uri', i) as string;
+						const deletePostData = await deletePostOperation(agent, uriDeletePost);
+						returnData.push(...deletePostData);
+						break;
 
-				case 'repost':
-					const uriRepost = this.getNodeParameter('uri', i) as string;
-					const cidRepost = this.getNodeParameter('cid', i) as string;
-					const repostData = await repostOperation(agent, uriRepost, cidRepost);
-					returnData.push(...repostData);
-					break;
+					case 'like':
+						const uriLike = this.getNodeParameter('uri', i) as string;
+						const cidLike = this.getNodeParameter('cid', i) as string;
+						const likeData = await likeOperation(agent, uriLike, cidLike);
+						returnData.push(...likeData);
+						break;
 
-				case 'deleteRepost':
-					const uriDeleteRepost = this.getNodeParameter('uri', i) as string;
-					const deleteRepostData = await deleteRepostOperation(agent, uriDeleteRepost);
-					returnData.push(...deleteRepostData);
-					break;
+					case 'deleteLike':
+						const uriDeleteLike = this.getNodeParameter('uri', i) as string;
+						const deleteLikeData = await deleteLikeOperation(agent, uriDeleteLike);
+						returnData.push(...deleteLikeData);
+						break;
 
-				/**
-				 * Feed operations
-				 */
+					case 'repost':
+						const uriRepost = this.getNodeParameter('uri', i) as string;
+						const cidRepost = this.getNodeParameter('cid', i) as string;
+						const repostData = await repostOperation(agent, uriRepost, cidRepost);
+						returnData.push(...repostData);
+						break;
 
-				case 'getAuthorFeed':
-					const authorFeedActor = this.getNodeParameter('actor', i) as string;
-					const authorFeedPostLimit = this.getNodeParameter('limit', i) as number;
-					const feedData = await getAuthorFeed(agent, authorFeedActor, authorFeedPostLimit);
-					returnData.push(...feedData);
-					break;
+					case 'deleteRepost':
+						const uriDeleteRepost = this.getNodeParameter('uri', i) as string;
+						const deleteRepostData = await deleteRepostOperation(agent, uriDeleteRepost);
+						returnData.push(...deleteRepostData);
+						break;
 
-				case 'getTimeline':
-					const timelinePostLimit = this.getNodeParameter('limit', i) as number;
-					const timelineData = await getTimeline(agent, timelinePostLimit);
-					returnData.push(...timelineData);
-					break;
+					/**
+					 * Feed operations
+					 */
 
-				/**
-				 * User operations
-				 */
+					case 'getAuthorFeed':
+						const authorFeedActor = this.getNodeParameter('actor', i) as string;
+						const authorFeedPostLimit = this.getNodeParameter('limit', i) as number;
+						const feedData = await getAuthorFeed(agent, authorFeedActor, authorFeedPostLimit);
+						returnData.push(...feedData);
+						break;
 
-				case 'getProfile':
-					const actor = this.getNodeParameter('actor', i) as string;
-					const profileData = await getProfileOperation(agent, actor);
-					returnData.push(...profileData);
-					break;
+					case 'getTimeline':
+						const timelinePostLimit = this.getNodeParameter('limit', i) as number;
+						const timelineData = await getTimeline(agent, timelinePostLimit);
+						returnData.push(...timelineData);
+						break;
 
-				case 'mute':
-					const didMute = this.getNodeParameter('did', i) as string;
-					const muteData = await muteOperation(agent, didMute);
-					returnData.push(...muteData);
-					break;
+					/**
+					 * User operations
+					 */
 
-				case 'unmute':
-					const didUnmute = this.getNodeParameter('did', i) as string;
-					const unmuteData = await unmuteOperation(agent, didUnmute);
-					returnData.push(...unmuteData);
-					break;
+					case 'getProfile':
+						const actor = this.getNodeParameter('actor', i) as string;
+						const profileData = await getProfileOperation(agent, actor);
+						returnData.push(...profileData);
+						break;
 
-				case 'block':
-					const didBlock = this.getNodeParameter('did', i) as string;
-					const blockData = await blockOperation(agent, didBlock);
-					returnData.push(...blockData);
-					break;
+					case 'mute':
+						const didMute = this.getNodeParameter('did', i) as string;
+						const muteData = await muteOperation(agent, didMute);
+						returnData.push(...muteData);
+						break;
 
-				case 'unblock':
-					const uriUnblock = this.getNodeParameter('uri', i) as string;
-					const unblockData = await unblockOperation(agent, uriUnblock);
-					returnData.push(...unblockData);
-					break;
+					case 'unmute':
+						const didUnmute = this.getNodeParameter('did', i) as string;
+						const unmuteData = await unmuteOperation(agent, didUnmute);
+						returnData.push(...unmuteData);
+						break;
 
-				default:
+					case 'block':
+						const didBlock = this.getNodeParameter('did', i) as string;
+						const blockData = await blockOperation(agent, didBlock);
+						returnData.push(...blockData);
+						break;
+
+					case 'unblock':
+						const uriUnblock = this.getNodeParameter('uri', i) as string;
+						const unblockData = await unblockOperation(agent, uriUnblock);
+						returnData.push(...unblockData);
+						break;
+
+					default:
+				}
+			} catch (error) {
+				if (this.continueOnFail()) {
+					returnData.push({
+						json: { error: (error as Error).message },
+						pairedItem: [{ item: i }],
+					});
+					continue;
+				}
+				throw new NodeApiError(this.getNode(), error as JsonObject);
 			}
 		}
 

@@ -1,4 +1,5 @@
 import { AtpAgent, RichText } from '@atproto/api';
+import sharp from 'sharp';
 import { INodeExecutionData, INodeProperties } from 'n8n-workflow';
 import { getLanguageOptions } from './languages';
 import ogs from 'open-graph-scraper';
@@ -156,7 +157,7 @@ export const postProperties: INodeProperties[] = [
 						displayName: 'Binary Property',
 						name: 'thumbnailBinaryProperty',
 						type: 'string',
-						default: 'data',
+						default: '',
 						description: 'Name of the binary property containing the thumbnail image',
 						displayOptions: {
 							show: {
@@ -176,6 +177,42 @@ export const postProperties: INodeProperties[] = [
 	},
 ];
 
+/**
+ * Resize an image if it exceeds the specified size or width.
+ *
+ * @link https://github.com/lovell/sharp/issues/1667
+ *
+ * @param imageBuffer
+ * @param maxWidth
+ * @param maxSizeBytes
+ */
+async function resizeImageIfNeeded(imageBuffer: Buffer, maxWidth: number, maxSizeBytes: number): Promise<Buffer> {
+	let quality = 90;
+	let buffer = imageBuffer;
+	const minQuality = 40;
+	const drop = 5;
+
+	while (buffer.length > maxSizeBytes && quality >= minQuality) {
+		try {
+			buffer = await sharp(imageBuffer)
+				.resize({ width: maxWidth, withoutEnlargement: true, fit: 'inside' })
+				.jpeg({ quality })
+				.toBuffer();
+		} catch (error: any) {
+			console.warn(`Failed to resize image at quality ${quality}: ${error.message}. Returning original image.`);
+			break;
+		}
+		if (buffer.length <= maxSizeBytes) {
+			return buffer;
+		}
+		quality -= drop;
+	}
+	if (buffer.length > maxSizeBytes) {
+		console.warn(`Image could not be resized below ${maxSizeBytes} bytes. Returning best effort.`);
+	}
+	return buffer;
+}
+
 export async function postOperation(
 	agent: AtpAgent,
 	postText: string,
@@ -191,58 +228,110 @@ export async function postOperation(
 	const returnData: INodeExecutionData[] = [];
 
 	let rt = new RichText({ text: postText });
-	await rt.detectFacets(agent);
+	try {
+		await rt.detectFacets(agent);
+	} catch (facetsErr: any) {
+		console.error(`Failed to detect facets in post text: ${facetsErr?.message || facetsErr}`);
+		// Continue without facets if detection fails
+	}
 
 	let postData: any = {
-		text: rt.text,
+		text: rt.text || postText,
 		langs: langs,
 		facets: rt.facets,
 	};
 
 	if (websiteCard?.uri) {
-		let thumbBlob = undefined;
-		if (websiteCard.thumbnailBinary) {
-			const uploadResponse = await agent.uploadBlob(websiteCard.thumbnailBinary, {
-				encoding: 'image/png', // Adjust based on expected image type
-			});
-			thumbBlob = uploadResponse.data.blob;
+		// Validate URL before proceeding
+		try {
+			new URL(websiteCard.uri);
+		} catch (error) {
+			throw new Error(`Invalid URL provided: ${websiteCard.uri}`);
 		}
 
-		if (websiteCard.fetchOpenGraphTags === true) {
-			const ogsResponse = await ogs({ url: websiteCard.uri })
-			if (ogsResponse.error) {
-				throw new Error(`Error fetching Open Graph tags: ${ogsResponse.error}`);
-			}
-			if (ogsResponse.result.ogImage) {
-				// create thumbBlob from ogsResult.result.ogImage
-				// get base64 image data from ogsResponse.result.ogImage.url
+		let thumbBlob = undefined;
+		const imageSizeLimit = 976.56 * 1024; // 976.56KB in bytes
+		const maxWidth = 1000;
 
-				const imageDataResponse = await fetch(ogsResponse.result.ogImage[0].url)
-				if (!imageDataResponse.ok) {
-					throw new Error(`Error fetching image data: ${imageDataResponse.statusText}`);
+		if (websiteCard.fetchOpenGraphTags === true) {
+			try {
+				const ogsResponse = await ogs({ url: websiteCard.uri });
+				if (ogsResponse.error) {
+					console.error(`Error fetching Open Graph tags: ${ogsResponse.error}`);
+					if (!websiteCard.title) {
+						websiteCard.title = websiteCard.uri || 'Untitled';
+					}
+				} else {
+					if (ogsResponse.result.ogImage) {
+						try {
+							const imageUrl = ogsResponse.result.ogImage[0].url;
+							const imageDataResponse = await fetch(imageUrl);
+							if (imageDataResponse.ok) {
+								const thumbBlobArrayBuffer = await imageDataResponse.arrayBuffer();
+								let thumbBuffer = Buffer.from(thumbBlobArrayBuffer);
+								thumbBuffer = await resizeImageIfNeeded(thumbBuffer, maxWidth, imageSizeLimit);
+								const { data } = await agent.uploadBlob(thumbBuffer);
+								thumbBlob = data.blob;
+							}
+						} catch (imageErr: any) {
+							throw new Error(`Failed to fetch or process image from Open Graph tags: ${imageErr?.message || imageErr}`);
+						}
+					}
+					if (ogsResponse.result.ogTitle) {
+						websiteCard.title = ogsResponse.result.ogTitle;
+					} else if (!websiteCard.title) {
+						websiteCard.title = websiteCard.uri || 'Untitled';
+					}
+					if (ogsResponse.result.ogDescription) {
+						websiteCard.description = ogsResponse.result.ogDescription;
+					} else {
+						websiteCard.description = '';
+					}
 				}
-				// Create a n8n binary buffer from the image data
-				const thumbBlobArrayBuffer = await imageDataResponse.arrayBuffer();
-				thumbBlob = Buffer.from(thumbBlobArrayBuffer);
-				const { data } = await agent.uploadBlob(thumbBlob)
-				thumbBlob = data.blob;
+			} catch (err: any) {
+				console.error(`Failed to fetch Open Graph tags for URL '${websiteCard.uri}': ${err?.message || err}`);
+				throw err;
 			}
-			if (ogsResponse.result.ogTitle) {
-				websiteCard.title = ogsResponse.result.ogTitle;
+		} else if (websiteCard.thumbnailBinary) {
+			// Only upload image if provided and not fetching OG tags
+			try {
+				websiteCard.thumbnailBinary = await resizeImageIfNeeded(websiteCard.thumbnailBinary, maxWidth, imageSizeLimit);
+				const uploadResponse = await agent.uploadBlob(websiteCard.thumbnailBinary);
+				thumbBlob = uploadResponse.data.blob;
+			} catch (thumbErr: any) {
+				console.error(`Failed to process or upload thumbnail: ${thumbErr?.message || thumbErr}`);
+				// Don't throw here, continue with the post without the thumbnail
 			}
-			if (ogsResponse.result.ogDescription) {
-				websiteCard.description = ogsResponse.result.ogDescription;
+		}
+
+		// Define the thumbnail for the embed
+		if (websiteCard.fetchOpenGraphTags === false) {
+			// handle thumbnailBinary
+			if (websiteCard.thumbnailBinary && !thumbBlob) {
+				try {
+					websiteCard.thumbnailBinary = await resizeImageIfNeeded(websiteCard.thumbnailBinary, maxWidth, imageSizeLimit);
+					const uploadResponse = await agent.uploadBlob(websiteCard.thumbnailBinary);
+					thumbBlob = uploadResponse.data.blob;
+				} catch (thumbErr: any) {
+					console.error(`Failed to process or upload thumbnail: ${thumbErr?.message || thumbErr}`);
+				}
 			}
+		}
+
+		// Always include thumb, even if undefined
+		const externalEmbed: any = {
+			uri: websiteCard.uri,
+			title: websiteCard.title,
+			description: websiteCard.description,
+		};
+
+		if (thumbBlob) {
+			externalEmbed.thumb = thumbBlob;
 		}
 
 		postData.embed = {
 			$type: 'app.bsky.embed.external',
-			external: {
-				uri: websiteCard.uri,
-				title: websiteCard.title,
-				description: websiteCard.description,
-				thumb: thumbBlob,
-			},
+			external: externalEmbed,
 		};
 	}
 
