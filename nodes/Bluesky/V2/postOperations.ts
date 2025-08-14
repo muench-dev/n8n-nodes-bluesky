@@ -2,7 +2,8 @@ import { AtpAgent, RichText } from '@atproto/api';
 import sharp from 'sharp';
 import {
 	INodeExecutionData,
-	INodeProperties
+	INodeProperties,
+	LoggerProxy as Logger,
 } from 'n8n-workflow';
 import { getLanguageOptions } from './languages';
 import ogs from 'open-graph-scraper';
@@ -259,7 +260,7 @@ async function resizeImageIfNeeded(imageBuffer: Buffer, maxWidth: number, maxSiz
 				.jpeg({ quality })
 				.toBuffer();
 		} catch (error: any) {
-			console.warn(`Failed to resize image at quality ${quality}: ${error.message}. Returning original image.`);
+			Logger.warn(`Failed to resize image at quality ${quality}: ${error.message}. Returning original image.`);
 			break;
 		}
 		if (buffer.length <= maxSizeBytes) {
@@ -268,7 +269,7 @@ async function resizeImageIfNeeded(imageBuffer: Buffer, maxWidth: number, maxSiz
 		quality -= drop;
 	}
 	if (buffer.length > maxSizeBytes) {
-		console.warn(`Image could not be resized below ${maxSizeBytes} bytes. Returning best effort.`);
+		Logger.warn(`Image could not be resized below ${maxSizeBytes} bytes. Returning best effort.`);
 	}
 	return buffer;
 }
@@ -294,13 +295,11 @@ export async function postOperation(
 ): Promise<INodeExecutionData[]> {
 	const returnData: INodeExecutionData[] = [];
 
-	console.log(websiteCard);
-
 	let rt = new RichText({ text: postText });
 	try {
 		await rt.detectFacets(agent);
 	} catch (facetsErr: any) {
-		console.error(`Failed to detect facets in post text: ${facetsErr?.message || facetsErr}`);
+		Logger.error(`Failed to detect facets in post text: ${facetsErr?.message || facetsErr}`);
 		// Continue without facets if detection fails
 	}
 
@@ -311,7 +310,7 @@ export async function postOperation(
 	};
 
 	if (image) {
-		console.debug('Processing image node property');
+		Logger.debug('Processing image node property');
 		let imageBlob = undefined;
 		if (image.binary) {
 			const resizedImageBuffer = await resizeImageIfNeeded(image.binary, MAX_IMAGE_WIDTH, IMAGE_SIZE_LIMIT);
@@ -335,7 +334,7 @@ export async function postOperation(
 
 	// If an image embed is present, prefer it over a website card. Only build website card embed if no image embed was set.
 	if (!postData.embed && websiteCard?.uri) {
-		console.debug('Processing websiteCard node property');
+		Logger.debug('Processing websiteCard node property');
 
 		// Validate URL before proceeding
 		try {
@@ -350,12 +349,12 @@ export async function postOperation(
 			try {
 				const ogsResponse = await ogs({ url: websiteCard.uri });
 				if (ogsResponse.error) {
-					console.error(`Error fetching Open Graph tags: ${ogsResponse.error}`);
+					Logger.error(`Error fetching Open Graph tags: ${ogsResponse.error}`);
 					if (!websiteCard.title) {
 						websiteCard.title = websiteCard.uri || 'Untitled';
 					}
 				} else {
-					console.info('Open Graph response', { ogsResponse });
+					Logger.info('Open Graph response', { ogsResponse });
 					// Extract image URL from various ogImage shapes
 					const ogImage = (ogsResponse.result as any).ogImage;
 					let imageUrl: string | undefined;
@@ -369,7 +368,7 @@ export async function postOperation(
 					}
 					if (imageUrl) {
 						try {
-							console.info('Fetching image from Open Graph tags', { imageUrl });
+							Logger.info('Fetching image from Open Graph tags', { imageUrl });
 							const imageDataResponse = await fetch(imageUrl);
 							if (imageDataResponse.ok) {
 								const thumbBlobArrayBuffer = await imageDataResponse.arrayBuffer();
@@ -379,7 +378,7 @@ export async function postOperation(
 								thumbBlob = data.blob;
 							}
 						} catch (imageErr: any) {
-							console.error(`Failed to fetch or process image from Open Graph tags: ${imageErr?.message || imageErr}`);
+							Logger.error(`Failed to fetch or process image from Open Graph tags: ${imageErr?.message || imageErr}`);
 							// Proceed without thumbnail
 						}
 					}
@@ -395,20 +394,20 @@ export async function postOperation(
 					}
 				}
 			} catch (err: any) {
-				console.error(`Failed to fetch Open Graph tags for URL '${websiteCard.uri}': ${err?.message || err}`);
+				Logger.error(`Failed to fetch Open Graph tags for URL '${websiteCard.uri}': ${err?.message || err}`);
 				// Do not throw; continue without OG enhancements
 			}
 		} else if (websiteCard.thumbnailBinary) {
 			// Only upload image if provided and not fetching OG tags
 
-			console.debug('Processing websiteCard.thumbnailBinary node property');
+			Logger.debug('Processing websiteCard.thumbnailBinary node property');
 
 			try {
 				websiteCard.thumbnailBinary = await resizeImageIfNeeded(websiteCard.thumbnailBinary, MAX_IMAGE_WIDTH, IMAGE_SIZE_LIMIT);
 				const uploadResponse = await agent.uploadBlob(websiteCard.thumbnailBinary, { encoding: 'image/jpeg' });
 				thumbBlob = uploadResponse.data.blob;
 			} catch (thumbErr: any) {
-				console.error(`Failed to process or upload thumbnail: ${thumbErr?.message || thumbErr}`);
+				Logger.error(`Failed to process or upload thumbnail: ${thumbErr?.message || thumbErr}`);
 				// Don't throw here, continue with the post without the thumbnail
 			}
 		}
@@ -422,7 +421,7 @@ export async function postOperation(
 					const uploadResponse = await agent.uploadBlob(websiteCard.thumbnailBinary, { encoding: 'image/jpeg' });
 					thumbBlob = uploadResponse.data.blob;
 				} catch (thumbErr: any) {
-					console.error(`Failed to process or upload thumbnail: ${thumbErr?.message || thumbErr}`);
+					Logger.error(`Failed to process or upload thumbnail: ${thumbErr?.message || thumbErr}`);
 				}
 			}
 		}
