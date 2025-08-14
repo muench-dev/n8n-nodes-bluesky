@@ -1,10 +1,15 @@
-import type {
+import {
 	INodeExecutionData,
 	IExecuteFunctions,
 	INodeType,
 	INodeTypeDescription,
 	LoggerProxy as Logger,
-	INodeTypeBaseDescription, INodeCredentialDescription, NodeDefaults,
+	INodeTypeBaseDescription,
+	INodeCredentialDescription,
+	NodeDefaults,
+	NodeApiError,
+	NodeOperationError,
+	JsonObject,
 } from 'n8n-workflow';
 
 import { NodeConnectionType } from 'n8n-workflow';
@@ -99,6 +104,7 @@ export class BlueskyV2 implements INodeType {
 				appPassword: string;
 				serviceUrl: string;
 			};
+
 			const serviceUrl = new URL(credentials.serviceUrl.replace(/\/+$/, '')); // Ensure no trailing slash
 			let loginIdentifier = credentials.identifier;
 
@@ -173,11 +179,14 @@ export class BlueskyV2 implements INodeType {
 			// For now, we rely on setting the Authorization header, assuming xrpc client will pick it up.
 
 		} else {
-			throw new Error('Unsupported authentication type');
+			throw new NodeOperationError(
+				this.getNode(),
+				new Error('Unsupported authentication type')
+			);
 		}
 
-
-		Logger.info('Authenticated with Bluesky', { ...nodeMeta });
+		const node = this.getNode();
+		const nodeMeta = { nodeName: node.name, nodeType: node.type, nodeId: node.id, operation };
 
 		for (let i = 0; i < items.length; i++) {
 			const itemMeta = { ...nodeMeta, itemIndex: i };
@@ -429,7 +438,7 @@ export class BlueskyV2 implements INodeType {
 					});
 					continue;
 				}
-				throw new NodeApiError(this.getNode(), error as JsonObject);
+				throw new NodeApiError(node, error as JsonObject);
 			}
 		}
 
