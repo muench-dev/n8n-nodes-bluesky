@@ -86,45 +86,93 @@ export class BlueskyV2 implements INodeType {
 						const postText = this.getNodeParameter('postText', i) as string;
 						const langs = this.getNodeParameter('langs', i) as string[];
 
-						// Get website card details if provided
-						const websiteCardDetails = this.getNodeParameter('websiteCard', i, {}) as {
-							details?: {
-								uri: string;
-								title: string;
-								description: string;
-								thumbnailBinaryProperty?: string;
-								fetchOpenGraphTags: boolean;
-							};
-						};
+						/**
+						 * Handle website card details if provided
+						 */
 
-						// Handle thumbnail binary data if provided
-						let thumbnailBinary: Buffer | undefined;
-						if (websiteCardDetails.details?.thumbnailBinaryProperty
-							  && websiteCardDetails.details?.fetchOpenGraphTags === false
+						let websiteCardRaw = this.getNodeParameter('websiteCard', i, {});
+						let websiteCard: any = websiteCardRaw;
+						if (
+							websiteCardRaw &&
+							typeof websiteCardRaw === 'object' &&
+							'details' in websiteCardRaw
 						) {
-							thumbnailBinary = await this.helpers.getBinaryDataBuffer(
-								i,
-								websiteCardDetails.details.thumbnailBinaryProperty as string
-							);
+							if (Array.isArray((websiteCardRaw as any).details) && (websiteCardRaw as any).details.length > 0) {
+								websiteCard = (websiteCardRaw as any).details[0];
+							} else if (typeof (websiteCardRaw as any).details === 'object') {
+								websiteCard = (websiteCardRaw as any).details;
+							}
 						}
 
-						let websiteCardUri = websiteCardDetails.details?.uri;
-						if (websiteCardUri && !/^https?:\/\//i.test(websiteCardUri)) {
-							// Skip relative URLs to prevent TypeError in postOperation
+						// Load thumbnail binary only when explicitly provided and OG tags are not fetched
+						let thumbnailBinary: Buffer | undefined;
+						if (websiteCard.thumbnailBinaryProperty && websiteCard.fetchOpenGraphTags === false) {
+							thumbnailBinary = await this.helpers.getBinaryDataBuffer(i, websiteCard.thumbnailBinaryProperty);
+						}
+
+						// Validate URL; ignore invalid/relative URLs
+						let websiteCardUri = websiteCard.uri;
+						try {
+							if (websiteCardUri) new URL(websiteCardUri);
+						} catch {
 							websiteCardUri = undefined;
 						}
+
+						// Construct websiteCardPayload analogously to imagePayload
+						let websiteCardPayload: {
+								uri: string | undefined;
+								title: string | undefined;
+								description: string | undefined;
+								thumbnailBinary: Buffer | undefined;
+								fetchOpenGraphTags: boolean | undefined;
+						} | undefined;
+						if (websiteCardUri || websiteCard.title || websiteCard.description || thumbnailBinary || websiteCard.fetchOpenGraphTags !== undefined) {
+							websiteCardPayload = {
+								uri: websiteCardUri ?? undefined,
+								title: websiteCard.title ?? undefined,
+								description: websiteCard.description ?? undefined,
+								thumbnailBinary: thumbnailBinary ?? undefined,
+								fetchOpenGraphTags: websiteCard.fetchOpenGraphTags ?? undefined,
+							};
+						}
+						console.debug('websiteCardPayload:', websiteCardPayload);
+
+						// Handle optional image parameter (supports both flattened and .details shapes)
+						const imageParamRaw = this.getNodeParameter('image', i, {}) as any;
+						const imageParam = (imageParamRaw && imageParamRaw.details) ? imageParamRaw.details : imageParamRaw;
+						let imagePayload: {
+							alt?: string;
+							mimeType?: string;
+							binary?: Buffer;
+							width?: number;
+							height?: number;
+						} | undefined;
+						if (imageParam && (imageParam.binary || imageParam.alt || imageParam.mimeType)) {
+							let imageBuffer: Buffer | undefined;
+							if (imageParam.binary) {
+								imageBuffer = await this.helpers.getBinaryDataBuffer(i, imageParam.binary as string);
+							}
+							imagePayload = {
+								alt: imageParam.alt,
+								mimeType: imageParam.mimeType,
+								binary: imageBuffer,
+								width: imageParam.width,
+								height: imageParam.height,
+							};
+						}
+
+						/*console.log(langs);
+						console.log(postText);
+						console.log(websiteCardPayload);
+						console.log(postOperation.name);
+						console.log(imagePayload);*/
 
 						const postData = await postOperation(
 							agent,
 							postText,
 							langs,
-							{
-								uri: websiteCardUri,
-								title: websiteCardDetails.details?.title,
-								description: websiteCardDetails.details?.description,
-								thumbnailBinary: thumbnailBinary,
-								fetchOpenGraphTags: websiteCardDetails.details?.fetchOpenGraphTags,
-							}
+							websiteCardPayload,
+							imagePayload
 						);
 
 						returnData.push(...postData);
