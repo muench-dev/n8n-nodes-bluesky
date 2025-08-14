@@ -11,6 +11,7 @@ describe('postOperation', () => {
 	beforeEach(() => {
 		// Reset mocks before each test
 		(ogs as jest.Mock).mockReset();
+		(jest.fn() as any).mockReset?.();
 
 		// Mock AtpAgent and its methods
 		mockAgent = {
@@ -64,6 +65,8 @@ describe('postOperation', () => {
 			},
 			text: "Test post"
 		});
+		// Ensure image upload used explicit encoding for website card
+		expect(mockAgent.uploadBlob).toHaveBeenCalledWith(expect.any(Buffer), { encoding: 'image/jpeg' });
 	});
 
 	it('should handle empty websiteCard.description', async () => {
@@ -95,5 +98,32 @@ describe('postOperation', () => {
 			text: postText,
 			langs: ['en'],
 		});
+	});
+
+	it('should support ogImage as a string', async () => {
+		(ogs as jest.Mock).mockResolvedValue({
+			error: false,
+			result: {
+				ogTitle: 'Title From OG',
+				ogDescription: 'Desc From OG',
+				ogImage: 'http://example.com/og-image.jpg',
+			},
+		});
+
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: jest.fn().mockResolvedValue(new ArrayBuffer(16)),
+		} as any);
+
+		await postOperation(
+			mockAgent,
+			'Post with OG image string',
+			['en'],
+			{ uri: 'http://example.com', fetchOpenGraphTags: true, title: '', description: '', thumbnailBinary: undefined }
+		);
+
+		// Called once for OG thumbnail with encoding
+		expect(mockAgent.uploadBlob).toHaveBeenCalledWith(expect.any(Buffer), { encoding: 'image/jpeg' });
+		expect(mockAgent.post).toHaveBeenCalledTimes(1);
 	});
 });

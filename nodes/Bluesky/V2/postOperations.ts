@@ -1,8 +1,15 @@
 import { AtpAgent, RichText } from '@atproto/api';
 import sharp from 'sharp';
-import { INodeExecutionData, INodeProperties } from 'n8n-workflow';
+import {
+	INodeExecutionData,
+	INodeProperties,
+	LoggerProxy as Logger,
+} from 'n8n-workflow';
 import { getLanguageOptions } from './languages';
 import ogs from 'open-graph-scraper';
+
+const IMAGE_SIZE_LIMIT = 976.56 * 1024; // 976.56KB in bytes
+const MAX_IMAGE_WIDTH = 1000;
 
 export const postProperties: INodeProperties[] = [
 	{
@@ -175,6 +182,60 @@ export const postProperties: INodeProperties[] = [
 			},
 		},
 	},
+	{
+		displayName: 'Image',
+		name: 'image',
+		type: 'fixedCollection',
+		default: {},
+		placeholder: 'Add Image',
+		options: [
+			{
+				displayName: 'Details',
+				name: 'details',
+				values: [
+					{
+						displayName: 'ALT',
+						name: 'alt',
+						type: 'string',
+						default: '',
+						required: true,
+					},
+					{
+						displayName: 'mimeType',
+						name: 'mimeType',
+						type: 'string',
+						default: '',
+						required: true,
+					},
+					{
+						displayName: 'Width',
+						name: 'width',
+						type: 'number',
+						default: 400,
+					},
+					{
+						displayName: 'Height',
+						name: 'height',
+						type: 'number',
+						default: 300,
+					},
+					{
+						displayName: 'Binary Property',
+						name: 'binary',
+						type: 'string',
+						default: 'data',
+						description: 'Name of the binary property containing the image',
+					},
+				],
+			},
+		],
+		displayOptions: {
+			show: {
+				resource: ['post'],
+				operation: ['post'],
+			},
+		},
+	},
 ];
 
 /**
@@ -199,7 +260,7 @@ async function resizeImageIfNeeded(imageBuffer: Buffer, maxWidth: number, maxSiz
 				.jpeg({ quality })
 				.toBuffer();
 		} catch (error: any) {
-			console.warn(`Failed to resize image at quality ${quality}: ${error.message}. Returning original image.`);
+			Logger.warn(`Failed to resize image at quality ${quality}: ${error.message}. Returning original image.`);
 			break;
 		}
 		if (buffer.length <= maxSizeBytes) {
@@ -208,7 +269,7 @@ async function resizeImageIfNeeded(imageBuffer: Buffer, maxWidth: number, maxSiz
 		quality -= drop;
 	}
 	if (buffer.length > maxSizeBytes) {
-		console.warn(`Image could not be resized below ${maxSizeBytes} bytes. Returning best effort.`);
+		Logger.warn(`Image could not be resized below ${maxSizeBytes} bytes. Returning best effort.`);
 	}
 	return buffer;
 }
@@ -224,6 +285,13 @@ export async function postOperation(
 		uri: string | undefined;
 		fetchOpenGraphTags: boolean | undefined;
 	},
+	image?: {
+		alt?: string;
+		mimeType?: string;
+		binary?: Buffer;
+		width?: number;
+		height?: number;
+	},
 ): Promise<INodeExecutionData[]> {
 	const returnData: INodeExecutionData[] = [];
 
@@ -231,7 +299,7 @@ export async function postOperation(
 	try {
 		await rt.detectFacets(agent);
 	} catch (facetsErr: any) {
-		console.error(`Failed to detect facets in post text: ${facetsErr?.message || facetsErr}`);
+		Logger.error(`Failed to detect facets in post text: ${facetsErr?.message || facetsErr}`);
 		// Continue without facets if detection fails
 	}
 
@@ -241,7 +309,33 @@ export async function postOperation(
 		facets: rt.facets,
 	};
 
-	if (websiteCard?.uri) {
+	if (image) {
+		Logger.debug('Processing image node property');
+		let imageBlob = undefined;
+		if (image.binary) {
+			const resizedImageBuffer = await resizeImageIfNeeded(image.binary, MAX_IMAGE_WIDTH, IMAGE_SIZE_LIMIT);
+			const uploadResponse = await agent.uploadBlob(resizedImageBuffer, {
+				encoding: image.mimeType && image.mimeType.trim() !== '' ? image.mimeType : 'image/jpeg',
+			});
+			imageBlob = uploadResponse.data.blob;
+			const imageEntry: any = {
+				alt: image.alt,
+				image: imageBlob,
+			};
+			if (typeof image.width === 'number' && typeof image.height === 'number' && image.width > 0 && image.height > 0) {
+				imageEntry.aspectRatio = { width: image.width, height: image.height };
+			}
+			postData.embed = {
+				$type: 'app.bsky.embed.images',
+				images: [imageEntry],
+			};
+		}
+	}
+
+	// If an image embed is present, prefer it over a website card. Only build website card embed if no image embed was set.
+	if (!postData.embed && websiteCard?.uri) {
+		Logger.debug('Processing websiteCard node property');
+
 		// Validate URL before proceeding
 		try {
 			new URL(websiteCard.uri);
@@ -250,31 +344,42 @@ export async function postOperation(
 		}
 
 		let thumbBlob = undefined;
-		const imageSizeLimit = 976.56 * 1024; // 976.56KB in bytes
-		const maxWidth = 1000;
 
 		if (websiteCard.fetchOpenGraphTags === true) {
 			try {
 				const ogsResponse = await ogs({ url: websiteCard.uri });
 				if (ogsResponse.error) {
-					console.error(`Error fetching Open Graph tags: ${ogsResponse.error}`);
+					Logger.error(`Error fetching Open Graph tags: ${ogsResponse.error}`);
 					if (!websiteCard.title) {
 						websiteCard.title = websiteCard.uri || 'Untitled';
 					}
 				} else {
-					if (ogsResponse.result.ogImage) {
+					Logger.info('Open Graph response', { ogsResponse });
+					// Extract image URL from various ogImage shapes
+					const ogImage = (ogsResponse.result as any).ogImage;
+					let imageUrl: string | undefined;
+					if (typeof ogImage === 'string') {
+						imageUrl = ogImage;
+					} else if (Array.isArray(ogImage) && ogImage.length > 0) {
+						const first = ogImage[0];
+						imageUrl = typeof first === 'string' ? first : first?.url;
+					} else if (ogImage && typeof ogImage === 'object' && 'url' in ogImage) {
+						imageUrl = (ogImage as any).url;
+					}
+					if (imageUrl) {
 						try {
-							const imageUrl = ogsResponse.result.ogImage[0].url;
+							Logger.info('Fetching image from Open Graph tags', { imageUrl });
 							const imageDataResponse = await fetch(imageUrl);
 							if (imageDataResponse.ok) {
 								const thumbBlobArrayBuffer = await imageDataResponse.arrayBuffer();
 								let thumbBuffer = Buffer.from(thumbBlobArrayBuffer);
-								thumbBuffer = await resizeImageIfNeeded(thumbBuffer, maxWidth, imageSizeLimit);
-								const { data } = await agent.uploadBlob(thumbBuffer);
+								thumbBuffer = await resizeImageIfNeeded(thumbBuffer, MAX_IMAGE_WIDTH, IMAGE_SIZE_LIMIT);
+								const { data } = await agent.uploadBlob(thumbBuffer, { encoding: 'image/jpeg' });
 								thumbBlob = data.blob;
 							}
 						} catch (imageErr: any) {
-							throw new Error(`Failed to fetch or process image from Open Graph tags: ${imageErr?.message || imageErr}`);
+							Logger.error(`Failed to fetch or process image from Open Graph tags: ${imageErr?.message || imageErr}`);
+							// Proceed without thumbnail
 						}
 					}
 					if (ogsResponse.result.ogTitle) {
@@ -289,17 +394,20 @@ export async function postOperation(
 					}
 				}
 			} catch (err: any) {
-				console.error(`Failed to fetch Open Graph tags for URL '${websiteCard.uri}': ${err?.message || err}`);
-				throw err;
+				Logger.error(`Failed to fetch Open Graph tags for URL '${websiteCard.uri}': ${err?.message || err}`);
+				// Do not throw; continue without OG enhancements
 			}
 		} else if (websiteCard.thumbnailBinary) {
 			// Only upload image if provided and not fetching OG tags
+
+			Logger.debug('Processing websiteCard.thumbnailBinary node property');
+
 			try {
-				websiteCard.thumbnailBinary = await resizeImageIfNeeded(websiteCard.thumbnailBinary, maxWidth, imageSizeLimit);
-				const uploadResponse = await agent.uploadBlob(websiteCard.thumbnailBinary);
+				websiteCard.thumbnailBinary = await resizeImageIfNeeded(websiteCard.thumbnailBinary, MAX_IMAGE_WIDTH, IMAGE_SIZE_LIMIT);
+				const uploadResponse = await agent.uploadBlob(websiteCard.thumbnailBinary, { encoding: 'image/jpeg' });
 				thumbBlob = uploadResponse.data.blob;
 			} catch (thumbErr: any) {
-				console.error(`Failed to process or upload thumbnail: ${thumbErr?.message || thumbErr}`);
+				Logger.error(`Failed to process or upload thumbnail: ${thumbErr?.message || thumbErr}`);
 				// Don't throw here, continue with the post without the thumbnail
 			}
 		}
@@ -309,11 +417,11 @@ export async function postOperation(
 			// handle thumbnailBinary
 			if (websiteCard.thumbnailBinary && !thumbBlob) {
 				try {
-					websiteCard.thumbnailBinary = await resizeImageIfNeeded(websiteCard.thumbnailBinary, maxWidth, imageSizeLimit);
-					const uploadResponse = await agent.uploadBlob(websiteCard.thumbnailBinary);
+					websiteCard.thumbnailBinary = await resizeImageIfNeeded(websiteCard.thumbnailBinary, MAX_IMAGE_WIDTH, IMAGE_SIZE_LIMIT);
+					const uploadResponse = await agent.uploadBlob(websiteCard.thumbnailBinary, { encoding: 'image/jpeg' });
 					thumbBlob = uploadResponse.data.blob;
 				} catch (thumbErr: any) {
-					console.error(`Failed to process or upload thumbnail: ${thumbErr?.message || thumbErr}`);
+					Logger.error(`Failed to process or upload thumbnail: ${thumbErr?.message || thumbErr}`);
 				}
 			}
 		}
