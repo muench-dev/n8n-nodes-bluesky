@@ -4,7 +4,7 @@ import { Icon } from 'n8n-workflow';
 export class BlueskyApi implements ICredentialType {
 	displayName = 'Bluesky API';
 	name = 'blueskyApi';
-	documentationUrl = 'https://atproto.com/docs';
+	documentationUrl = 'https://bsky.app/settings/app-passwords';
 	icon = 'node:@muench-dev/n8n-nodes-bluesky.bluesky' as Icon;
 
 	properties: INodeProperties[] = [
