@@ -1,5 +1,10 @@
-import type { INodeTypeBaseDescription, IVersionedNodeType } from 'n8n-workflow';
-import { VersionedNodeType } from 'n8n-workflow';
+import {
+	ApplicationError,
+	INodeType,
+	INodeTypeBaseDescription,
+	IVersionedNodeType,
+} from 'n8n-workflow';
+import { LoggerProxy as Logger, VersionedNodeType } from 'n8n-workflow';
 
 import { BlueskyV1 } from './V1/BlueskyV1.node';
 import { BlueskyV2 } from './V2/BlueskyV2.node';
@@ -22,5 +27,33 @@ export class Bluesky extends VersionedNodeType {
 		};
 
 		super(nodeVersions, baseDescription);
+	}
+
+	override getNodeType(version?: number): INodeType {
+		if (version === undefined) {
+			return super.getNodeType();
+		}
+
+		const requestedNode = this.nodeVersions[version];
+		if (requestedNode) {
+			return requestedNode;
+		}
+
+		const fallbackVersion = this.getLatestVersion();
+		Logger.warn('Requested Bluesky node version is not available, falling back to latest version', {
+			nodeName: this.description.name,
+			requestedVersion: version,
+			fallbackVersion,
+		});
+
+		const fallbackNode = this.nodeVersions[fallbackVersion];
+		if (!fallbackNode) {
+			throw new ApplicationError('Bluesky node has no available versions to fall back to.');
+		}
+
+		// Cache the fallback under the requested version so subsequent lookups reuse it without logging
+		this.nodeVersions[version] = fallbackNode;
+
+		return fallbackNode;
 	}
 }
