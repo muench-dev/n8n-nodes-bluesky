@@ -65,5 +65,11 @@
     "@atproto/api": "^0.16.2",
     "open-graph-scraper": "^6.8.2",
     "sharp": "^0.34.3"
+  },
+  "pnpm": {
+    "overrides": {
+      "form-data@>=4.0.0 <4.0.4": ">=4.0.4",
+      "axios@<1.12.0": ">=1.12.0"
+    }
   }
 }
