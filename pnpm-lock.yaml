@@ -24,6 +24,9 @@ importers:
       sharp:
         specifier: ^0.34.3
         version: 0.34.4
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
     devDependencies:
       '@types/jest':
         specifier: ^30.0.0
