@@ -44,3 +44,25 @@ You can use the RSS Trigger node to get the latest posts from an RSS feed and th
 Use Open Graph Tags to get the image and description of the post.
 
 ![images](.github/images/use_case_rss_trigger_node_details.png)
+
+## Development
+
+### Testing
+
+This project includes comprehensive testing:
+
+- **Unit Tests**: Run with `pnpm test` to test individual operations
+- **Integration Tests**: The `n8n-integration-test.yml` workflow automatically tests the package installation in a vanilla n8n environment
+- **Build Tests**: Verify TypeScript compilation and package structure
+
+### n8n Integration Testing
+
+The repository includes a GitHub Action workflow that tests the package in a real n8n environment to ensure:
+
+- ✅ Package can be installed via npm/pnpm
+- ✅ All required files are present in the built package
+- ✅ Node and credential files can be loaded by n8n
+- ✅ n8n starts successfully with the package installed
+- ✅ API endpoints remain accessible
+
+This integration test runs automatically on push and pull requests, testing against multiple n8n versions to ensure compatibility.

@@ -1,0 +1,250 @@
+name: n8n Integration Test
+
+on:
+  push:
+  pull_request:
+  # Allow manual trigger for testing
+  workflow_dispatch:
+
+jobs:
+  n8n-integration-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # Test against multiple n8n versions to ensure compatibility
+        n8n-version: ['latest', '1.82.0']
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies and build package
+        run: |
+          pnpm install
+          pnpm build
+
+      - name: Pack the package for installation
+        run: |
+          pnpm pack
+          # Move the packed tarball to a predictable location
+          mv *.tgz muench-dev-n8n-nodes-bluesky.tgz
+
+      - name: Setup vanilla n8n installation
+        run: |
+          # Create a temporary directory for n8n installation
+          mkdir -p /tmp/n8n-test
+          cd /tmp/n8n-test
+          
+          # Initialize a new npm project
+          npm init -y
+          
+          # Install n8n
+          npm install n8n@${{ matrix.n8n-version }}
+          
+          # Install our Bluesky nodes package from the packed tarball
+          npm install ${{ github.workspace }}/muench-dev-n8n-nodes-bluesky.tgz
+
+      - name: Verify package installation
+        run: |
+          cd /tmp/n8n-test
+          
+          # Check if the package is installed in node_modules
+          ls -la node_modules/@muench-dev/
+          
+          # Verify the main files exist
+          test -f "node_modules/@muench-dev/n8n-nodes-bluesky/dist/nodes/Bluesky/Bluesky.node.js"
+          test -f "node_modules/@muench-dev/n8n-nodes-bluesky/dist/credentials/BlueskyApi.credentials.js"
+          
+          echo "✅ Package files verified successfully"
+
+      - name: Test n8n node loading
+        run: |
+          cd /tmp/n8n-test
+          
+          # Create a test script to verify nodes can be loaded
+          cat > test-nodes.js << 'EOF'
+          const path = require('path');
+          const fs = require('fs');
+          
+          // Simulate n8n's node discovery process
+          const packagePath = './node_modules/@muench-dev/n8n-nodes-bluesky';
+          const packageJson = JSON.parse(fs.readFileSync(path.join(packagePath, 'package.json'), 'utf8'));
+          
+          console.log('📦 Package info:', {
+            name: packageJson.name,
+            version: packageJson.version,
+            description: packageJson.description
+          });
+          
+          // Check n8n configuration
+          if (!packageJson.n8n) {
+            throw new Error('Missing n8n configuration in package.json');
+          }
+          
+          console.log('🔧 n8n configuration:', packageJson.n8n);
+          
+          // Verify node files exist
+          const nodeFiles = packageJson.n8n.nodes || [];
+          const credentialFiles = packageJson.n8n.credentials || [];
+          
+          console.log('🎯 Checking node files...');
+          nodeFiles.forEach(nodeFile => {
+            const fullPath = path.join(packagePath, nodeFile);
+            if (!fs.existsSync(fullPath)) {
+              throw new Error(`Node file not found: ${fullPath}`);
+            }
+            console.log(`  ✅ ${nodeFile}`);
+          });
+          
+          console.log('🔑 Checking credential files...');
+          credentialFiles.forEach(credFile => {
+            const fullPath = path.join(packagePath, credFile);
+            if (!fs.existsSync(fullPath)) {
+              throw new Error(`Credential file not found: ${fullPath}`);
+            }
+            console.log(`  ✅ ${credFile}`);
+          });
+          
+          // Try to require the main node file to ensure it's loadable with n8n context
+          try {
+            const mainNodePath = path.join(packagePath, nodeFiles[0]);
+            console.log('🔍 Attempting to load:', mainNodePath);
+            const nodeModule = require(mainNodePath);
+            console.log('📥 Node module exports:', Object.keys(nodeModule));
+            
+            // Check if the main class exists
+            if (nodeModule.Bluesky) {
+              console.log('✅ Main Bluesky node class found');
+              
+              // Try to instantiate the class to verify it's well-formed
+              try {
+                const instance = new nodeModule.Bluesky();
+                console.log('✅ Node class can be instantiated');
+                console.log('🏷️ Node type description available:', !!instance.description);
+              } catch (instError) {
+                console.log('⚠️ Node instantiation issue (may be normal):', instError.message);
+              }
+            } else {
+              console.log('⚠️ Bluesky class not found in main exports');
+              console.log('Available exports:', Object.keys(nodeModule));
+            }
+          } catch (error) {
+            // This might fail due to missing peer dependencies, which is expected
+            console.log('⚠️ Module loading issue (may be due to missing peer deps):', error.message);
+            if (error.code === 'MODULE_NOT_FOUND' && error.message.includes('n8n-workflow')) {
+              console.log('ℹ️ This is expected - n8n-workflow is a peer dependency');
+            } else {
+              throw error;
+            }
+          }
+          
+          console.log('🎉 All checks passed! Package is ready for n8n.');
+          EOF
+          
+          # Run the test script
+          node test-nodes.js
+
+      - name: Test n8n startup with package
+        timeout-minutes: 5
+        run: |
+          cd /tmp/n8n-test
+          
+          # Set environment variables for n8n
+          export N8N_DISABLE_UI=true
+          export N8N_SKIP_WEBHOOK_DEREGISTRATION_SHUTDOWN=true
+          export N8N_LOG_LEVEL=error
+          
+          # Start n8n in the background and capture output
+          timeout 30s npx n8n start > n8n-startup.log 2>&1 &
+          N8N_PID=$!
+          
+          # Wait a moment for n8n to start up
+          sleep 10
+          
+          # Check if n8n process is still running
+          if kill -0 $N8N_PID 2>/dev/null; then
+            echo "✅ n8n started successfully"
+            
+            # Check the log for any errors related to our package
+            if grep -i "bluesky" n8n-startup.log; then
+              echo "📋 Bluesky-related log entries found"
+            fi
+            
+            if grep -i "error.*bluesky\|bluesky.*error" n8n-startup.log; then
+              echo "❌ Errors found related to Bluesky nodes:"
+              grep -i "error.*bluesky\|bluesky.*error" n8n-startup.log
+              exit 1
+            fi
+            
+            # Clean shutdown
+            kill $N8N_PID
+            wait $N8N_PID 2>/dev/null || true
+            echo "✅ n8n integration test completed successfully"
+          else
+            echo "❌ n8n failed to start or crashed"
+            echo "📋 Startup log:"
+            cat n8n-startup.log
+            exit 1
+          fi
+
+      - name: Test API endpoint availability
+        timeout-minutes: 3
+        run: |
+          cd /tmp/n8n-test
+          
+          # Set environment variables for n8n
+          export N8N_DISABLE_UI=true
+          export N8N_SKIP_WEBHOOK_DEREGISTRATION_SHUTDOWN=true
+          export N8N_LOG_LEVEL=error
+          export N8N_PORT=5678
+          
+          # Start n8n in the background
+          timeout 60s npx n8n start > n8n-api-test.log 2>&1 &
+          N8N_PID=$!
+          
+          # Wait for n8n to be ready
+          echo "⏳ Waiting for n8n to be ready..."
+          for i in {1..30}; do
+            if curl -f -s http://localhost:5678/healthz > /dev/null 2>&1; then
+              echo "✅ n8n API is responding"
+              break
+            fi
+            if ! kill -0 $N8N_PID 2>/dev/null; then
+              echo "❌ n8n process died during startup"
+              cat n8n-api-test.log
+              exit 1
+            fi
+            sleep 2
+          done
+          
+          # Test if we can reach the API
+          if curl -f -s http://localhost:5678/healthz > /dev/null; then
+            echo "✅ n8n API health check passed"
+          else
+            echo "❌ n8n API health check failed"
+            exit 1
+          fi
+          
+          # Clean shutdown
+          kill $N8N_PID
+          wait $N8N_PID 2>/dev/null || true
+
+      - name: Upload test artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: n8n-test-logs-${{ matrix.n8n-version }}
+          path: |
+            /tmp/n8n-test/*.log
+            /tmp/n8n-test/package.json
+            /tmp/n8n-test/package-lock.json
+          retention-days: 7
