@@ -107,11 +107,14 @@ jobs:
           timeout 60s npm exec -- n8n start > n8n-api-test.log 2>&1 &
           N8N_PID=$!
 
+          ready=false
+
           # Wait for n8n to be ready
           echo "⏳ Waiting for n8n to be ready..."
           for i in {1..30}; do
             if curl -f -s http://127.0.0.1:5678/healthz > /dev/null 2>&1; then
               echo "✅ n8n API is responding"
+              ready=true
               break
             fi
             if ! kill -0 $N8N_PID 2>/dev/null; then
@@ -122,11 +125,9 @@ jobs:
             sleep 2
           done
 
-          # Test if we can reach the API
-          if curl -f -s http://127.0.0.1:5678/healthz > /dev/null; then
-            echo "✅ n8n API health check passed"
-          else
+          if [ "$ready" != "true" ]; then
             echo "❌ n8n API health check failed"
+            cat n8n-api-test.log
             exit 1
           fi
 
