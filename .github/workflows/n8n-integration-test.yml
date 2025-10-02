@@ -1,0 +1,147 @@
+name: n8n Integration Test
+
+on:
+  push:
+  pull_request:
+
+  # Allow manual trigger for testing
+  workflow_dispatch:
+
+jobs:
+  n8n-integration-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # Test against multiple n8n versions to ensure compatibility
+        n8n-version: ['latest', '1.82.0']
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies and build package
+        run: |
+          pnpm install
+          pnpm build
+
+      - name: Pack the package for installation
+        run: |
+          pnpm pack
+          # Move the packed tarball to a predictable location
+          mv *.tgz muench-dev-n8n-nodes-bluesky.tgz
+
+      - name: Setup vanilla n8n installation
+        run: |
+          # Create a temporary directory for n8n installation
+          mkdir -p /tmp/n8n-test
+          cd /tmp/n8n-test
+
+          # Initialize a new npm project
+          npm init -y
+
+          # Install n8n
+          npm install n8n@${{ matrix.n8n-version }}
+
+          # Install our Bluesky nodes package from the packed tarball
+          npm install ${{ github.workspace }}/muench-dev-n8n-nodes-bluesky.tgz
+
+      - name: Verify package installation
+        run: |
+          set -euo pipefail
+          cd /tmp/n8n-test
+          npm list --depth=0 @muench-dev/n8n-nodes-bluesky
+          node <<'NODE'
+          const pkg = require('@muench-dev/n8n-nodes-bluesky/package.json');
+          console.log(`Installed ${pkg.name} v${pkg.version}`);
+          NODE
+
+      - name: Test n8n startup with package
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          cd /tmp/n8n-test
+          export N8N_DISABLE_UI=true
+          export N8N_SKIP_WEBHOOK_DEREGISTRATION_SHUTDOWN=true
+          export N8N_LOG_LEVEL=error
+          export N8N_PORT=5678
+          export N8N_LISTEN_ADDRESS=127.0.0.1
+
+          timeout 90s npm exec -- n8n start > n8n-startup.log 2>&1 &
+          N8N_PID=$!
+
+          echo "⏳ Waiting to ensure n8n remains running..."
+          sleep 15
+
+          if ! kill -0 "$N8N_PID" 2>/dev/null; then
+            echo "❌ n8n process exited during startup"
+            cat n8n-startup.log
+            exit 1
+          fi
+
+          echo "✅ n8n stayed up during the initial smoke check"
+          kill "$N8N_PID"
+          wait "$N8N_PID" 2>/dev/null || true
+
+      - name: Test API endpoint availability
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          cd /tmp/n8n-test
+          # Set environment variables for n8n
+          export N8N_DISABLE_UI=true
+          export N8N_SKIP_WEBHOOK_DEREGISTRATION_SHUTDOWN=true
+          export N8N_LOG_LEVEL=error
+          export N8N_PORT=5678
+          export N8N_LISTEN_ADDRESS=127.0.0.1
+
+          # Start n8n in the background
+          timeout 60s npm exec -- n8n start > n8n-api-test.log 2>&1 &
+          N8N_PID=$!
+
+          ready=false
+
+          # Wait for n8n to be ready
+          echo "⏳ Waiting for n8n to be ready..."
+          for i in {1..30}; do
+            if curl -f -s http://127.0.0.1:5678/healthz > /dev/null 2>&1; then
+              echo "✅ n8n API is responding"
+              ready=true
+              break
+            fi
+            if ! kill -0 $N8N_PID 2>/dev/null; then
+              echo "❌ n8n process died during startup"
+              cat n8n-api-test.log
+              exit 1
+            fi
+            sleep 2
+          done
+
+          if [ "$ready" != "true" ]; then
+            echo "❌ n8n API health check failed"
+            cat n8n-api-test.log
+            exit 1
+          fi
+
+          # Clean shutdown
+          kill $N8N_PID
+          wait $N8N_PID 2>/dev/null || true
+
+      - name: Upload test artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: n8n-test-logs-${{ matrix.n8n-version }}
+          path: |
+            /tmp/n8n-test/*.log
+            /tmp/n8n-test/package.json
+            /tmp/n8n-test/package-lock.json
+          retention-days: 7
