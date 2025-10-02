@@ -8,3 +8,6 @@ npm-debug.log*
 yarn.lock
 .vscode/launch.json
 .qodo
+
+# Packed tarballs
+*.tgz
