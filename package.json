@@ -62,7 +62,7 @@
     "n8n-workflow": "*"
   },
   "dependencies": {
-    "@atproto/api": "^0.16.2",
+    "@atproto/api": "^0.17.2",
     "open-graph-scraper": "^6.8.2",
     "sharp": "^0.34.3",
     "zod": "^3.23.8"
