@@ -13,8 +13,8 @@ importers:
   .:
     dependencies:
       '@atproto/api':
-        specifier: ^0.16.2
-        version: 0.16.9
+        specifier: ^0.17.3
+        version: 0.17.3
       n8n-workflow:
         specifier: '*'
         version: 1.82.0
@@ -64,8 +64,8 @@ importers:
 
 packages:
 
-  '@atproto/api@0.16.9':
-    resolution: {integrity: sha512-hXbnBIDEIwXxxyduxxZsf0aP8Z+JKyfG7L47FZqAYOI6uNm8oBTLLrHQ2RmJZZeyMIMM17gvxNtPDoULKQfupw==}
+  '@atproto/api@0.17.3':
+    resolution: {integrity: sha512-pdQXhUAapNPdmN00W0vX5ta/aMkHqfgBHATt20X02XwxQpY2AnrPm2Iog4FyjsZqoHooAtCNV/NWJ4xfddJzsg==}
 
   '@atproto/common-web@0.4.3':
     resolution: {integrity: sha512-nRDINmSe4VycJzPo6fP/hEltBcULFxt9Kw7fQk6405FyAWZiTluYHlXOnU7GkQfeUK44OENG1qFTBcmCJ7e8pg==}
@@ -2565,7 +2565,7 @@ packages:
 
 snapshots:
 
-  '@atproto/api@0.16.9':
+  '@atproto/api@0.17.3':
     dependencies:
       '@atproto/common-web': 0.4.3
       '@atproto/lexicon': 0.5.1
