@@ -14,7 +14,7 @@ importers:
     dependencies:
       '@atproto/api':
         specifier: ^0.17.3
-        version: 0.17.3
+        version: 0.17.4
       n8n-workflow:
         specifier: '*'
         version: 1.82.0
@@ -64,8 +64,8 @@ importers:
 
 packages:
 
-  '@atproto/api@0.17.3':
-    resolution: {integrity: sha512-pdQXhUAapNPdmN00W0vX5ta/aMkHqfgBHATt20X02XwxQpY2AnrPm2Iog4FyjsZqoHooAtCNV/NWJ4xfddJzsg==}
+  '@atproto/api@0.17.4':
+    resolution: {integrity: sha512-MRa0WdxyDiGF7fVKd/2ldvonsHQjsaLUOGw/PHrZ7J01lqlw/jaXLS25FNNYzjPGmGpnIyDCIg4Uucd/OblI9w==}
 
   '@atproto/common-web@0.4.3':
     resolution: {integrity: sha512-nRDINmSe4VycJzPo6fP/hEltBcULFxt9Kw7fQk6405FyAWZiTluYHlXOnU7GkQfeUK44OENG1qFTBcmCJ7e8pg==}
@@ -2346,8 +2346,8 @@ packages:
   title-case@3.0.3:
     resolution: {integrity: sha512-e1zGYRvbffpcHIrnuqT0Dh+gEJtDaxDSoG4JAIpq4oDFyooziLBIiYQv0GBT4FUAnUop5uZ1hiIAj7oAF6sOCA==}
 
-  tlds@1.260.0:
-    resolution: {integrity: sha512-78+28EWBhCEE7qlyaHA9OR3IPvbCLiDh3Ckla593TksfFc9vfTsgvH7eS+dr3o9qr31gwGbogcI16yN91PoRjQ==}
+  tlds@1.261.0:
+    resolution: {integrity: sha512-QXqwfEl9ddlGBaRFXIvNKK6OhipSiLXuRuLJX5DErz0o0Q0rYxulWLdFryTkV5PkdZct5iMInwYEGe/eR++1AA==}
     hasBin: true
 
   tmpl@1.0.5:
@@ -2570,7 +2570,7 @@ packages:
 
 snapshots:
 
-  '@atproto/api@0.17.3':
+  '@atproto/api@0.17.4':
     dependencies:
       '@atproto/common-web': 0.4.3
       '@atproto/lexicon': 0.5.1
@@ -2578,7 +2578,7 @@ snapshots:
       '@atproto/xrpc': 0.7.5
       await-lock: 2.2.2
       multiformats: 9.9.0
-      tlds: 1.260.0
+      tlds: 1.261.0
       zod: 3.25.76
 
   '@atproto/common-web@0.4.3':
@@ -5325,7 +5325,7 @@ snapshots:
     dependencies:
       tslib: 2.8.1
 
-  tlds@1.260.0: {}
+  tlds@1.261.0: {}
 
   tmpl@1.0.5: {}
 
