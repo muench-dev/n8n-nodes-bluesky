@@ -18,12 +18,13 @@ export class Bluesky extends VersionedNodeType {
 			group: ['transform'],
 			subtitle: '={{$parameter["operation"] + ": " + $parameter["resource"]}}',
 			description: 'Interact with the Bluesky social platform',
-			defaultVersion: 2,
+			defaultVersion: 2.1,
 		};
 
 		const nodeVersions: IVersionedNodeType['nodeVersions'] = {
 			1: new BlueskyV1(baseDescription),
 			2: new BlueskyV2(baseDescription),
+			2.1: new BlueskyV2(baseDescription),
 		};
 
 		super(nodeVersions, baseDescription);
