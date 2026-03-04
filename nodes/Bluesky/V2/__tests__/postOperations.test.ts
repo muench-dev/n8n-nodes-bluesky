@@ -1,4 +1,11 @@
-import { postOperation } from '../postOperations';
+import {
+	postOperation,
+	deletePostOperation,
+	likeOperation,
+	deleteLikeOperation,
+	repostOperation,
+	deleteRepostOperation,
+} from '../postOperations';
 import ogs from 'open-graph-scraper';
 import { AtpAgent } from '@atproto/api';
 
@@ -125,5 +132,76 @@ describe('postOperation', () => {
 		// Called once for OG thumbnail with encoding
 		expect(mockAgent.uploadBlob).toHaveBeenCalledWith(expect.any(Buffer), { encoding: 'image/jpeg' });
 		expect(mockAgent.post).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe('Additional Post Operations', () => {
+	let mockAgent: jest.Mocked<AtpAgent>;
+
+	beforeEach(() => {
+		mockAgent = {
+			deletePost: jest.fn().mockResolvedValue({}),
+			like: jest.fn().mockResolvedValue({ uri: 'like-uri', cid: 'like-cid' }),
+			deleteLike: jest.fn().mockResolvedValue({}),
+			repost: jest.fn().mockResolvedValue({ uri: 'repost-uri', cid: 'repost-cid' }),
+			deleteRepost: jest.fn().mockResolvedValue({}),
+		} as any;
+	});
+
+	describe('deletePostOperation', () => {
+		it('should call agent.deletePost and return the URI', async () => {
+			const uri = 'at://did:plc:user/app.bsky.feed.post/post-rkey';
+			const result = await deletePostOperation(mockAgent, uri);
+
+			expect(mockAgent.deletePost).toHaveBeenCalledWith(uri);
+			expect(result).toHaveLength(1);
+			expect(result[0].json).toEqual({ uri });
+		});
+	});
+
+	describe('likeOperation', () => {
+		it('should call agent.like and return the URI and CID', async () => {
+			const uri = 'at://did:plc:user/app.bsky.feed.post/post-rkey';
+			const cid = 'post-cid';
+			const result = await likeOperation(mockAgent, uri, cid);
+
+			expect(mockAgent.like).toHaveBeenCalledWith(uri, cid);
+			expect(result).toHaveLength(1);
+			expect(result[0].json).toEqual({ uri: 'like-uri', cid: 'like-cid' });
+		});
+	});
+
+	describe('deleteLikeOperation', () => {
+		it('should call agent.deleteLike and return the URI', async () => {
+			const uri = 'at://did:plc:user/app.bsky.feed.like/like-rkey';
+			const result = await deleteLikeOperation(mockAgent, uri);
+
+			expect(mockAgent.deleteLike).toHaveBeenCalledWith(uri);
+			expect(result).toHaveLength(1);
+			expect(result[0].json).toEqual({ uri });
+		});
+	});
+
+	describe('repostOperation', () => {
+		it('should call agent.repost and return the URI and CID', async () => {
+			const uri = 'at://did:plc:user/app.bsky.feed.post/post-rkey';
+			const cid = 'post-cid';
+			const result = await repostOperation(mockAgent, uri, cid);
+
+			expect(mockAgent.repost).toHaveBeenCalledWith(uri, cid);
+			expect(result).toHaveLength(1);
+			expect(result[0].json).toEqual({ uri: 'repost-uri', cid: 'repost-cid' });
+		});
+	});
+
+	describe('deleteRepostOperation', () => {
+		it('should call agent.deleteRepost and return the URI', async () => {
+			const uri = 'at://did:plc:user/app.bsky.feed.repost/repost-rkey';
+			const result = await deleteRepostOperation(mockAgent, uri);
+
+			expect(mockAgent.deleteRepost).toHaveBeenCalledWith(uri);
+			expect(result).toHaveLength(1);
+			expect(result[0].json).toEqual({ uri });
+		});
 	});
 });
