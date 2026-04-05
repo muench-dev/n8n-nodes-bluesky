@@ -1,0 +1,16 @@
+{
+	"git": {
+		"commitMessage": "chore: release v${version}",
+		"tagName": "v${version}",
+		"requireCleanWorkingDir": false
+	},
+	"npm": {
+		"publish": false
+	},
+	"github": {
+		"release": true
+	},
+	"hooks": {
+		"after:bump": "pnpm install --lockfile-only"
+	}
+}
