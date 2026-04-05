@@ -62,6 +62,15 @@ type MediaItemPayload = {
 	height?: number;
 };
 
+type RawMediaEntry = {
+	binaryPropertyName?: string;
+	altText?: string;
+};
+
+type WrappedMediaEntry = {
+	media?: RawMediaEntry;
+};
+
 async function getWebsiteCardPayload(context: IExecuteFunctions, itemIndex: number) {
 	const websiteCardRaw = context.getNodeParameter('websiteCard', itemIndex, {}) as any;
 	let websiteCard = websiteCardRaw;
@@ -141,15 +150,28 @@ async function getMediaItemsPayload(
 		return [];
 	}
 
-	const mediaItemsRaw = context.getNodeParameter('mediaItems', itemIndex, {}) as {
-		media?: Array<{ media?: { binaryPropertyName?: string; altText?: string } }>;
-	};
+	const mediaItemsRaw = context.getNodeParameter('mediaItems', itemIndex, {}) as
+		| {
+				media?: WrappedMediaEntry[] | RawMediaEntry;
+				mediaItems?: WrappedMediaEntry[];
+		  }
+		| WrappedMediaEntry[];
 
-	const mediaItems = mediaItemsRaw.media ?? [];
+	const mediaItems = Array.isArray(mediaItemsRaw)
+		? mediaItemsRaw
+		: Array.isArray(mediaItemsRaw.media)
+			? mediaItemsRaw.media
+			: Array.isArray(mediaItemsRaw.mediaItems)
+				? mediaItemsRaw.mediaItems
+				: mediaItemsRaw.media && typeof mediaItemsRaw.media === 'object'
+					? [{ media: mediaItemsRaw.media }]
+					: [];
 	const payload: MediaItemPayload[] = [];
 
 	for (const item of mediaItems) {
-		const binaryPropertyName = item.media?.binaryPropertyName;
+		const mediaEntry: RawMediaEntry =
+			'media' in item ? (item.media ?? {}) : (item as RawMediaEntry);
+		const binaryPropertyName = mediaEntry.binaryPropertyName;
 		if (!binaryPropertyName) {
 			continue;
 		}
@@ -158,7 +180,7 @@ async function getMediaItemsPayload(
 		const binaryMeta = context.helpers.assertBinaryData(itemIndex, binaryPropertyName);
 
 		payload.push({
-			alt: item.media?.altText,
+			alt: mediaEntry.altText,
 			mimeType: binaryMeta.mimeType,
 			binary: binaryData,
 		});
