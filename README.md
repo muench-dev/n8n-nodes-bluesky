@@ -6,6 +6,8 @@ Community n8n nodes for interacting with the [Bluesky API](https://docs.bsky.app
 
 The package ships a versioned `Bluesky` node. Version 2 is the default and includes the latest features.
 
+Some of the Version 2 feature set was backported from the `brianmoney/n8n-nodes-bluesky` fork and adapted to this repository's current codebase and packaging.
+
 ## Installation
 
 Install the package in an n8n environment:
