@@ -2,45 +2,118 @@
 
 # n8n-nodes-bluesky
 
-This repository contains the code for the n8n nodes that interact with the [Bluesky API](https://docs.bsky.app/docs/category/http-reference).
+Community n8n nodes for interacting with the [Bluesky API](https://docs.bsky.app/docs/category/http-reference).
+
+The package ships a versioned `Bluesky` node. Version 2 is the default and includes the latest features.
 
 ## Installation
 
+Install the package in an n8n environment:
+
 ```bash
-pnpm install @muench-dev/n8n-nodes-bluesky
+pnpm add @muench-dev/n8n-nodes-bluesky
 ```
 
-In n8n community edition, you can install the nodes in the settings page.
+You can also install it from the Community Nodes section in n8n.
+
+## Requirements
+
+- Node.js `>=18.10`
+- pnpm `>=9.1`
+- A Bluesky app password
+
+Create an app password in Bluesky here:
+`https://bsky.app/settings/app-passwords`
+
+## Credentials
+
+The node uses these credential fields:
+
+- `Identifier (Handle)`
+- `App Password`
+- `Service URL` with `https://bsky.social` as the default
+
+The custom service URL is useful when you want to authenticate against a different AT Protocol service.
 
 ## Features
 
-- User
-	- Block User
-	- Get Profile
-	- Mute User
-	- Un-mute User
-- Feed
-	- Get Author Feed
-	- Get Timeline of current user
-- Post
-	- Create Post
-  - Like
-  - Unlike
-  - Repost
-  - Delete Repost
+### User
 
-## Screenshots
+- Get Profile
+- Mute User
+- Un-Mute User
+- Block User
+- Un-Block User
 
-![images](.github/images/screenshot_20241128_174932.png)
+### Feed
 
-## Use Cases
+- Get Author Feed
+- Get Timeline
+
+Feed responses are normalized and include post metadata such as author details, counts, embeds, reply parent details, and repost context when available.
+
+### Post
+
+- Create Post
+- Delete Post
+- Like a Post
+- Unlike a Post
+- Repost a Post
+- Delete Repost
+
+Create Post also supports:
+
+- language tags
+- automatic rich text facet detection for links and mentions
+- single image upload with alt text
+- optional image aspect ratio metadata
+- automatic image resizing to stay within Bluesky upload limits
+- website cards with manual title, description, and thumbnail
+- website cards generated from Open Graph tags
+
+Current behavior:
+
+- If both an image and a website card are provided, the image embed is used.
+- Open Graph website cards can optionally fetch title, description, and preview image from the target URL.
+
+## Example Use Cases
 
 ### RSS Feed to Bluesky
 
-You can use the RSS Trigger node to get the latest posts from an RSS feed and then use the Create Post node to post them to Bluesky.
+Use the RSS Trigger node to fetch new posts from an RSS feed and pass the result into the Bluesky node with the `Create Post` operation.
+
+For link posts, you can enable website cards and fetch Open Graph tags to enrich the preview automatically.
 
 ![images](.github/images/use_case_rss_trigger_overview.png)
 
-Use Open Graph Tags to get the image and description of the post.
-
 ![images](.github/images/use_case_rss_trigger_node_details.png)
+
+## Screenshot
+
+![images](.github/images/screenshot_20241128_174932.png)
+
+## Development
+
+Install dependencies:
+
+```bash
+pnpm install
+```
+
+Run tests:
+
+```bash
+pnpm test
+```
+
+Run linting:
+
+```bash
+pnpm lint
+```
+
+Build the package:
+
+```bash
+pnpm build
+```
