@@ -1,76 +1,81 @@
 {
-  "name": "@muench-dev/n8n-nodes-bluesky",
-  "version": "4.0.1",
-  "description": "BlueSky API nodes for n8n",
-  "keywords": [
-    "n8n-community-node-package"
-  ],
-  "license": "MIT",
-  "homepage": "https://github.com/muench-dev/n8n-nodes-bluesky#readme",
-  "author": {
-    "name": "Christian Münch",
-    "email": "christian@muench.dev"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/muench-dev/n8n-nodes-bluesky.git"
-  },
-  "engines": {
-    "node": ">=18.10",
-    "pnpm": ">=9.1"
-  },
-  "packageManager": "pnpm@9.1.4",
-  "main": "index.js",
-  "scripts": {
-    "preinstall": "npx only-allow pnpm",
-    "clean": "rimraf dist/",
-    "build": "npm run clean && tsc && npm run build:images",
-    "build:images": "copyfiles nodes/**/*.svg nodes/**/*.png dist/",
-    "dev": "tsc --watch",
-    "format": "prettier nodes credentials --write",
-    "lint": "eslint nodes credentials package.json",
-    "lintfix": "eslint nodes credentials package.json --fix",
-    "test": "jest",
-    "prepublishOnly": "pnpm build && pnpm lint -c .eslintrc.prepublish.js nodes credentials package.json"
-  },
-  "files": [
-    "dist"
-  ],
-  "n8n": {
-    "n8nNodesApiVersion": 1,
-    "credentials": [
-      "dist/credentials/BlueskyApi.credentials.js"
-    ],
-    "nodes": [
-      "dist/nodes/Bluesky/Bluesky.node.js"
-    ]
-  },
-  "devDependencies": {
-    "@types/jest": "^30.0.0",
-    "@types/node": "^25.0.10",
-    "@typescript-eslint/parser": "^8.16.0",
-    "copyfiles": "^2.4.1",
-    "eslint": "^8.56.0",
-    "eslint-plugin-n8n-nodes-base": "^1.16.1",
-    "jest": "^30.0.2",
-    "prettier": "^3.3.2",
-    "rimraf": "^6.0.1",
-    "ts-jest": "^29.3.4",
-    "typescript": "^5.5.3"
-  },
-  "peerDependencies": {
-    "n8n-workflow": "*"
-  },
-  "dependencies": {
-    "@atproto/api": "^0.18.16",
-    "open-graph-scraper": "^6.8.2",
-    "sharp": "^0.34.3",
-    "zod": "^4.1.12"
-  },
-  "pnpm": {
-    "overrides": {
-      "form-data@>=4.0.0 <4.0.4": ">=4.0.4",
-      "axios@<1.12.0": ">=1.12.0"
-    }
-  }
+	"name": "@muench-dev/n8n-nodes-bluesky",
+	"version": "4.0.1",
+	"description": "BlueSky API nodes for n8n",
+	"keywords": [
+		"n8n-community-node-package"
+	],
+	"license": "MIT",
+	"homepage": "https://github.com/muench-dev/n8n-nodes-bluesky#readme",
+	"author": {
+		"name": "Christian Münch",
+		"email": "christian@muench.dev"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/muench-dev/n8n-nodes-bluesky.git"
+	},
+	"engines": {
+		"node": ">=18.10",
+		"pnpm": ">=9.1"
+	},
+	"packageManager": "pnpm@9.1.4",
+	"main": "index.js",
+	"scripts": {
+		"preinstall": "npx only-allow pnpm",
+		"clean": "rimraf dist/",
+		"build": "npm run clean && tsc && npm run build:images",
+		"build:images": "copyfiles nodes/**/*.svg nodes/**/*.png dist/",
+		"dev": "tsc --watch",
+		"format": "prettier nodes credentials --write",
+		"lint": "eslint nodes credentials package.json",
+		"lintfix": "eslint nodes credentials package.json --fix",
+		"test": "jest",
+		"prepublishOnly": "pnpm build && pnpm lint -c .eslintrc.prepublish.js nodes credentials package.json"
+	},
+	"files": [
+		"dist"
+	],
+	"publishConfig": {
+		"access": "public",
+		"provenance": true,
+		"registry": "https://registry.npmjs.org/"
+	},
+	"n8n": {
+		"n8nNodesApiVersion": 1,
+		"credentials": [
+			"dist/credentials/BlueskyApi.credentials.js"
+		],
+		"nodes": [
+			"dist/nodes/Bluesky/Bluesky.node.js"
+		]
+	},
+	"devDependencies": {
+		"@types/jest": "^30.0.0",
+		"@types/node": "^25.0.10",
+		"@typescript-eslint/parser": "^8.16.0",
+		"copyfiles": "^2.4.1",
+		"eslint": "^8.56.0",
+		"eslint-plugin-n8n-nodes-base": "^1.16.1",
+		"jest": "^30.0.2",
+		"prettier": "^3.3.2",
+		"rimraf": "^6.0.1",
+		"ts-jest": "^29.3.4",
+		"typescript": "^5.5.3"
+	},
+	"peerDependencies": {
+		"n8n-workflow": "*"
+	},
+	"dependencies": {
+		"@atproto/api": "^0.18.16",
+		"open-graph-scraper": "^6.8.2",
+		"sharp": "^0.34.3",
+		"zod": "^4.1.12"
+	},
+	"pnpm": {
+		"overrides": {
+			"form-data@>=4.0.0 <4.0.4": ">=4.0.4",
+			"axios@<1.12.0": ">=1.12.0"
+		}
+	}
 }
