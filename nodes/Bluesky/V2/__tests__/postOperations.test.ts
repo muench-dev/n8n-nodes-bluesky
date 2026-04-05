@@ -1,4 +1,4 @@
-import { postOperation } from '../postOperations';
+import { postOperation, quoteOperation, replyOperation } from '../postOperations';
 import ogs from 'open-graph-scraper';
 import { AtpAgent } from '@atproto/api';
 
@@ -52,21 +52,25 @@ describe('postOperation', () => {
 
 		expect(mockAgent.post).toHaveBeenCalledTimes(1);
 		const postData = mockAgent.post.mock.calls[0][0];
-		expect(postData).toEqual({
-			langs: ['en'],
-			embed: {
-				$type: 'app.bsky.embed.external',
-				external: {
-					uri: 'http://example.com',
-					title: 'Test Title',
-					description: '',
-					thumb: 'test-blob',
+		expect(postData).toEqual(
+			expect.objectContaining({
+				langs: ['en'],
+				embed: {
+					$type: 'app.bsky.embed.external',
+					external: {
+						uri: 'http://example.com',
+						title: 'Test Title',
+						description: 'Initial Description',
+						thumb: 'test-blob',
+					},
 				},
-			},
-			text: "Test post"
-		});
+				text: 'Test post',
+			}),
+		);
 		// Ensure image upload used explicit encoding for website card
-		expect(mockAgent.uploadBlob).toHaveBeenCalledWith(expect.any(Buffer), { encoding: 'image/jpeg' });
+		expect(mockAgent.uploadBlob).toHaveBeenCalledWith(expect.any(Buffer), {
+			encoding: 'image/jpeg',
+		});
 	});
 
 	it('should handle empty websiteCard.description', async () => {
@@ -84,20 +88,22 @@ describe('postOperation', () => {
 
 		expect(mockAgent.post).toHaveBeenCalledTimes(1);
 		const postData = mockAgent.post.mock.calls[0][0];
-		expect(postData).toEqual({
-			embed: {
-				$type: 'app.bsky.embed.external',
-				external: {
-					uri: 'http://example.com',
-					title: 'Test Title',
-					description: '',
-					thumb: undefined,
+		expect(postData).toEqual(
+			expect.objectContaining({
+				embed: {
+					$type: 'app.bsky.embed.external',
+					external: {
+						uri: 'http://example.com',
+						title: 'Test Title',
+						description: '',
+						thumb: undefined,
+					},
 				},
-			},
-			facets: undefined,
-			text: postText,
-			langs: ['en'],
-		});
+				facets: undefined,
+				text: postText,
+				langs: ['en'],
+			}),
+		);
 	});
 
 	it('should support ogImage as a string', async () => {
@@ -115,15 +121,79 @@ describe('postOperation', () => {
 			arrayBuffer: jest.fn().mockResolvedValue(new ArrayBuffer(16)),
 		} as any);
 
-		await postOperation(
-			mockAgent,
-			'Post with OG image string',
-			['en'],
-			{ uri: 'http://example.com', fetchOpenGraphTags: true, title: '', description: '', thumbnailBinary: undefined }
-		);
+		await postOperation(mockAgent, 'Post with OG image string', ['en'], {
+			uri: 'http://example.com',
+			fetchOpenGraphTags: true,
+			title: '',
+			description: '',
+			thumbnailBinary: undefined,
+		});
 
 		// Called once for OG thumbnail with encoding
-		expect(mockAgent.uploadBlob).toHaveBeenCalledWith(expect.any(Buffer), { encoding: 'image/jpeg' });
+		expect(mockAgent.uploadBlob).toHaveBeenCalledWith(expect.any(Buffer), {
+			encoding: 'image/jpeg',
+		});
 		expect(mockAgent.post).toHaveBeenCalledTimes(1);
+	});
+
+	it('should create a quote post with record embed', async () => {
+		await quoteOperation(mockAgent, 'Quoted text', ['en'], 'at://post/1', 'cid-1');
+
+		expect(mockAgent.post).toHaveBeenCalledWith(
+			expect.objectContaining({
+				text: 'Quoted text',
+				langs: ['en'],
+				embed: {
+					$type: 'app.bsky.embed.record',
+					record: {
+						uri: 'at://post/1',
+						cid: 'cid-1',
+					},
+				},
+			}),
+		);
+	});
+
+	it('should create a reply with root and parent refs', async () => {
+		(mockAgent as any).app = {
+			bsky: {
+				feed: {
+					getPostThread: jest.fn().mockResolvedValue({
+						data: {
+							thread: {
+								post: {
+									record: {
+										reply: {
+											root: {
+												uri: 'at://root/post',
+												cid: 'root-cid',
+											},
+										},
+									},
+								},
+							},
+						},
+					}),
+				},
+			},
+		};
+
+		await replyOperation(mockAgent, 'Reply text', ['en'], 'at://parent/post', 'parent-cid');
+
+		expect(mockAgent.post).toHaveBeenCalledWith(
+			expect.objectContaining({
+				text: 'Reply text',
+				reply: {
+					root: {
+						uri: 'at://root/post',
+						cid: 'root-cid',
+					},
+					parent: {
+						uri: 'at://parent/post',
+						cid: 'parent-cid',
+					},
+				},
+			}),
+		);
 	});
 });

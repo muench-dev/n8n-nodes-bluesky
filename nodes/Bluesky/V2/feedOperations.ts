@@ -1,12 +1,12 @@
 import {
+	AppBskyActorDefs,
 	AppBskyFeedDefs,
 	AppBskyFeedGetAuthorFeed,
 	AppBskyFeedGetTimeline,
 	AtpAgent,
 	ComAtprotoLabelDefs,
-	AppBskyActorDefs,
 } from '@atproto/api';
-import { INodeExecutionData, INodeProperties, IDataObject } from 'n8n-workflow';
+import { IDataObject, INodeExecutionData, INodeProperties } from 'n8n-workflow';
 
 export interface OutputPost {
 	uri: string;
@@ -88,7 +88,11 @@ export function mapFeedViewPostToOutputPost(
 				authorDid: parent.author.did,
 			};
 		} else if (AppBskyFeedDefs.isNotFoundPost(parent)) {
-			outputPost.replyParent = { uri: parent.uri, cid: 'not_found_cid', authorDid: 'not_found_author' };
+			outputPost.replyParent = {
+				uri: parent.uri,
+				cid: 'not_found_cid',
+				authorDid: 'not_found_author',
+			};
 		} else if (AppBskyFeedDefs.isBlockedPost(parent)) {
 			outputPost.replyParent = { uri: parent.uri, cid: 'blocked_cid', authorDid: 'blocked_author' };
 		}
@@ -108,12 +112,18 @@ export function mapFeedViewPostToOutputPost(
 	}
 
 	if (feedViewPost.feedContext) {
-		if (typeof outputPost.feedContext === 'string' && typeof feedViewPost.feedContext === 'string') {
+		if (
+			typeof outputPost.feedContext === 'string' &&
+			typeof feedViewPost.feedContext === 'string'
+		) {
 			outputPost.feedContext = `${outputPost.feedContext}; ${feedViewPost.feedContext}`;
 		} else if (!outputPost.feedContext) {
-			outputPost.feedContext = feedViewPost.feedContext as string | { text: string; facets?: any[] };
+			outputPost.feedContext = feedViewPost.feedContext as
+				| string
+				| { text: string; facets?: any[] };
 		}
 	}
+
 	return outputPost;
 }
 
@@ -123,14 +133,13 @@ export async function _getAuthorFeedInternal(
 ): Promise<OutputPost[]> {
 	const response = await agent.getAuthorFeed(params);
 	if (!response.success) {
-		// After confirming !response.success, check for error properties before accessing
 		if ('error' in response && 'message' in response) {
 			throw new Error(`Failed to fetch author feed: ${response.error} - ${response.message}`);
-		} else {
-			// Fallback if structure is not as expected for a failure
-			throw new Error('Failed to fetch author feed due to an unknown error structure.');
 		}
+
+		throw new Error('Failed to fetch author feed due to an unknown error structure.');
 	}
+
 	return response.data.feed.map((item) => mapFeedViewPostToOutputPost(item));
 }
 
@@ -140,14 +149,13 @@ export async function _getTimelineInternal(
 ): Promise<OutputPost[]> {
 	const response = await agent.getTimeline(params);
 	if (!response.success) {
-		// After confirming !response.success, check for error properties before accessing
 		if ('error' in response && 'message' in response) {
 			throw new Error(`Failed to fetch timeline: ${response.error} - ${response.message}`);
-		} else {
-			// Fallback if structure is not as expected for a failure
-			throw new Error('Failed to fetch timeline due to an unknown error structure.');
 		}
+
+		throw new Error('Failed to fetch timeline due to an unknown error structure.');
 	}
+
 	return response.data.feed.map((item) => mapFeedViewPostToOutputPost(item));
 }
 
@@ -159,8 +167,25 @@ export const feedProperties: INodeProperties[] = [
 		noDataExpression: true,
 		displayOptions: { show: { resource: ['feed'] } },
 		options: [
-			{ name: 'Get Author Feed', value: 'getAuthorFeed', description: 'Author feeds return posts by a single user', action: 'Retrieve feed with posts by a single user' },
-			{ name: 'Timeline', value: 'getTimeline', description: 'The default chronological feed of posts from users the authenticated user follows', action: 'Retrieve user timeline' },
+			{
+				name: 'Get Author Feed',
+				value: 'getAuthorFeed',
+				description: 'Author feeds return posts by a single user',
+				action: 'Retrieve feed with posts by a single user',
+			},
+			{
+				name: 'Get Post Thread',
+				value: 'getPostThread',
+				description: 'Retrieve the full context of a post thread',
+				action: 'Retrieve a post thread',
+			},
+			{
+				name: 'Timeline',
+				value: 'getTimeline',
+				description:
+					'The default chronological feed of posts from users the authenticated user follows',
+				action: 'Retrieve user timeline',
+			},
 		],
 		default: 'getAuthorFeed',
 	},
@@ -175,6 +200,33 @@ export const feedProperties: INodeProperties[] = [
 		displayOptions: { show: { resource: ['feed'], operation: ['getAuthorFeed'] } },
 	},
 	{
+		displayName: 'Post URI',
+		name: 'uri',
+		type: 'string',
+		default: '',
+		required: true,
+		description: 'The URI of the post to fetch the thread for',
+		displayOptions: { show: { resource: ['feed'], operation: ['getPostThread'] } },
+	},
+	{
+		displayName: 'Depth',
+		name: 'depth',
+		type: 'number',
+		typeOptions: { minValue: 0 },
+		default: 6,
+		description: 'Depth of parent replies to fetch',
+		displayOptions: { show: { resource: ['feed'], operation: ['getPostThread'] } },
+	},
+	{
+		displayName: 'Parent Height',
+		name: 'parentHeight',
+		type: 'number',
+		typeOptions: { minValue: 0 },
+		default: 80,
+		description: 'Depth of child replies to fetch',
+		displayOptions: { show: { resource: ['feed'], operation: ['getPostThread'] } },
+	},
+	{
 		displayName: 'Limit',
 		name: 'limit',
 		type: 'number',
@@ -184,21 +236,82 @@ export const feedProperties: INodeProperties[] = [
 		description: 'Max number of results to return',
 		displayOptions: { show: { resource: ['feed'], operation: ['getAuthorFeed', 'getTimeline'] } },
 	},
+	{
+		displayName: 'Filter',
+		name: 'filter',
+		type: 'options',
+		default: 'posts_with_replies',
+		description: 'Filter posts by type',
+		options: [
+			{
+				name: 'Posts and Author Threads',
+				value: 'posts_and_author_threads',
+				description: 'Posts and threads authored by the user',
+			},
+			{
+				name: 'Posts with Media',
+				value: 'posts_with_media',
+				description: 'Only posts containing media attachments',
+			},
+			{
+				name: 'Posts with Replies',
+				value: 'posts_with_replies',
+				description: 'All posts, including replies',
+			},
+			{
+				name: 'Posts with Video',
+				value: 'posts_with_video',
+				description: 'Only posts containing video content',
+			},
+			{
+				name: 'Posts without Replies',
+				value: 'posts_no_replies',
+				description: 'Only top-level posts',
+			},
+		],
+		displayOptions: { show: { resource: ['feed'], operation: ['getAuthorFeed'] } },
+	},
 ];
 
 export async function getAuthorFeed(
 	agent: AtpAgent,
 	actor: string,
 	limit: number,
+	filter?: string,
 ): Promise<INodeExecutionData[]> {
-	const outputPosts = await _getAuthorFeedInternal(agent, { actor: actor, limit: limit });
+	const outputPosts = await _getAuthorFeedInternal(agent, {
+		actor,
+		limit,
+		...(filter ? { filter } : {}),
+	});
 	return outputPosts.map((post) => ({ json: post as IDataObject, pairedItem: { item: 0 } }));
 }
 
-export async function getTimeline(
+export async function getPostThread(
 	agent: AtpAgent,
-	limit: number,
+	uri: string,
+	depth?: number,
+	parentHeight?: number,
 ): Promise<INodeExecutionData[]> {
-	const outputPosts = await _getTimelineInternal(agent, { limit: limit });
+	const response = await agent.app.bsky.feed.getPostThread({
+		uri,
+		...(depth !== undefined ? { depth } : {}),
+		...(parentHeight !== undefined ? { parentHeight } : {}),
+	});
+
+	if (!response.data.thread) {
+		return [];
+	}
+
+	return [
+		{
+			json: JSON.parse(JSON.stringify(response.data.thread)) as IDataObject,
+			pairedItem: { item: 0 },
+		},
+	];
+}
+
+export async function getTimeline(agent: AtpAgent, limit: number): Promise<INodeExecutionData[]> {
+	const outputPosts = await _getTimelineInternal(agent, { limit });
 	return outputPosts.map((post) => ({ json: post as IDataObject, pairedItem: { item: 0 } }));
 }

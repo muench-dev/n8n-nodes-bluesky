@@ -2,36 +2,170 @@ import {
 	INodeExecutionData,
 	IExecuteFunctions,
 	INodeType,
+	INodeTypeBaseDescription,
 	INodeTypeDescription,
-	INodeTypeBaseDescription, JsonObject, NodeApiError,
+	JsonObject,
 	LoggerProxy as Logger,
+	NodeApiError,
 } from 'n8n-workflow';
-
 import { NodeConnectionType } from 'n8n-workflow';
-
 import { AtpAgent, CredentialSession } from '@atproto/api';
 
 import { resourcesProperty } from './resources';
-
-// Operations
 import {
 	deleteLikeOperation,
 	deletePostOperation,
+	deleteRepostOperation,
 	likeOperation,
 	postOperation,
-	deleteRepostOperation,
 	postProperties,
+	quoteOperation,
+	replyOperation,
 	repostOperation,
 } from './postOperations';
 import {
-	getProfileOperation,
-	muteOperation,
-	userProperties,
-	unmuteOperation,
 	blockOperation,
+	getProfileOperation,
+	listAllFollowersOperation,
+	listAllFollowsOperation,
+	muteOperation,
 	unblockOperation,
+	unmuteOperation,
+	userProperties,
 } from './userOperations';
-import { getAuthorFeed, feedProperties, getTimeline } from './feedOperations';
+import { feedProperties, getAuthorFeed, getPostThread, getTimeline } from './feedOperations';
+import {
+	analyticsProperties,
+	getPostInteractionsOperation,
+	getUnreadCountOperation,
+	listNotificationsOperation,
+	updateSeenNotificationsOperation,
+} from './analyticsOperations';
+import { graphProperties, muteThreadOperation } from './graphOperations';
+import {
+	addUserToListOperation,
+	createListOperation,
+	deleteListOperation,
+	getListFeedOperation,
+	getListsOperation,
+	listProperties,
+	removeUserFromListOperation,
+	updateListOperation,
+} from './listOperations';
+import { searchPostsOperation, searchProperties, searchUsersOperation } from './searchOperations';
+
+type MediaItemPayload = {
+	alt?: string;
+	mimeType?: string;
+	binary?: Buffer;
+	width?: number;
+	height?: number;
+};
+
+async function getWebsiteCardPayload(context: IExecuteFunctions, itemIndex: number) {
+	const websiteCardRaw = context.getNodeParameter('websiteCard', itemIndex, {}) as any;
+	let websiteCard = websiteCardRaw;
+
+	if (websiteCardRaw && typeof websiteCardRaw === 'object' && 'details' in websiteCardRaw) {
+		if (Array.isArray(websiteCardRaw.details) && websiteCardRaw.details.length > 0) {
+			websiteCard = websiteCardRaw.details[0];
+		} else if (typeof websiteCardRaw.details === 'object') {
+			websiteCard = websiteCardRaw.details;
+		}
+	}
+
+	let thumbnailBinary: Buffer | undefined;
+	if (websiteCard?.thumbnailBinaryProperty && websiteCard.fetchOpenGraphTags === false) {
+		thumbnailBinary = await context.helpers.getBinaryDataBuffer(
+			itemIndex,
+			websiteCard.thumbnailBinaryProperty,
+		);
+	}
+
+	let websiteCardUri = websiteCard?.uri;
+	try {
+		if (websiteCardUri) {
+			new URL(websiteCardUri);
+		}
+	} catch {
+		websiteCardUri = undefined;
+	}
+
+	if (
+		!websiteCardUri &&
+		!websiteCard?.title &&
+		!websiteCard?.description &&
+		!thumbnailBinary &&
+		websiteCard?.fetchOpenGraphTags === undefined
+	) {
+		return undefined;
+	}
+
+	return {
+		uri: websiteCardUri ?? undefined,
+		title: websiteCard?.title ?? undefined,
+		description: websiteCard?.description ?? undefined,
+		thumbnailBinary,
+		fetchOpenGraphTags: websiteCard?.fetchOpenGraphTags ?? undefined,
+	};
+}
+
+async function getLegacyImagePayload(context: IExecuteFunctions, itemIndex: number) {
+	const imageParamRaw = context.getNodeParameter('image', itemIndex, {}) as any;
+	const imageParam = imageParamRaw && imageParamRaw.details ? imageParamRaw.details : imageParamRaw;
+
+	if (!imageParam || (!imageParam.binary && !imageParam.alt && !imageParam.mimeType)) {
+		return undefined;
+	}
+
+	let imageBuffer: Buffer | undefined;
+	if (imageParam.binary) {
+		imageBuffer = await context.helpers.getBinaryDataBuffer(itemIndex, imageParam.binary as string);
+	}
+
+	return {
+		alt: imageParam.alt,
+		mimeType: imageParam.mimeType,
+		binary: imageBuffer,
+		width: imageParam.width,
+		height: imageParam.height,
+	};
+}
+
+async function getMediaItemsPayload(
+	context: IExecuteFunctions,
+	itemIndex: number,
+): Promise<MediaItemPayload[]> {
+	const includeMedia = context.getNodeParameter('includeMedia', itemIndex, false) as boolean;
+	if (!includeMedia) {
+		return [];
+	}
+
+	const mediaItemsRaw = context.getNodeParameter('mediaItems', itemIndex, {}) as {
+		media?: Array<{ media?: { binaryPropertyName?: string; altText?: string } }>;
+	};
+
+	const mediaItems = mediaItemsRaw.media ?? [];
+	const payload: MediaItemPayload[] = [];
+
+	for (const item of mediaItems) {
+		const binaryPropertyName = item.media?.binaryPropertyName;
+		if (!binaryPropertyName) {
+			continue;
+		}
+
+		const binaryData = await context.helpers.getBinaryDataBuffer(itemIndex, binaryPropertyName);
+		const binaryMeta = context.helpers.assertBinaryData(itemIndex, binaryPropertyName);
+
+		payload.push({
+			alt: item.media?.altText,
+			mimeType: binaryMeta.mimeType,
+			binary: binaryData,
+		});
+	}
+
+	return payload;
+}
 
 export class BlueskyV2 implements INodeType {
 	description: INodeTypeDescription;
@@ -51,7 +185,16 @@ export class BlueskyV2 implements INodeType {
 					required: true,
 				},
 			],
-			properties: [resourcesProperty, ...userProperties, ...postProperties, ...feedProperties],
+			properties: [
+				resourcesProperty,
+				...analyticsProperties,
+				...graphProperties,
+				...listProperties,
+				...userProperties,
+				...postProperties,
+				...feedProperties,
+				...searchProperties,
+			],
 		};
 	}
 
@@ -59,7 +202,6 @@ export class BlueskyV2 implements INodeType {
 		const items = this.getInputData();
 		const returnData: INodeExecutionData[] = [];
 
-		// Load credentials
 		const credentials = (await this.getCredentials('blueskyApi')) as {
 			identifier: string;
 			appPassword: string;
@@ -67,7 +209,7 @@ export class BlueskyV2 implements INodeType {
 		};
 
 		const operation = this.getNodeParameter('operation', 0) as string;
-		const serviceUrl = new URL(credentials.serviceUrl.replace(/\/+$/, '')); // Ensure no trailing slash
+		const serviceUrl = new URL(credentials.serviceUrl.replace(/\/+$/, ''));
 
 		const node = this.getNode();
 		const nodeMeta = { nodeName: node.name, nodeType: node.type, nodeId: node.id, operation };
@@ -88,234 +230,332 @@ export class BlueskyV2 implements INodeType {
 
 			try {
 				switch (operation) {
-					/**
-					 * Post operations
-					 */
-
 					case 'post': {
 						const postText = this.getNodeParameter('postText', i) as string;
 						const langs = this.getNodeParameter('langs', i) as string[];
+						const websiteCardPayload = await getWebsiteCardPayload(this, i);
+						const imagePayload = await getLegacyImagePayload(this, i);
+						const mediaItemsPayload = await getMediaItemsPayload(this, i);
 
-						/**
-						 * Handle website card details if provided
-						 */
-						let websiteCardRaw = this.getNodeParameter('websiteCard', i, {});
-						let websiteCard: any = websiteCardRaw;
-						if (
-							websiteCardRaw &&
-							typeof websiteCardRaw === 'object' &&
-							'details' in websiteCardRaw
-						) {
-							if (Array.isArray((websiteCardRaw as any).details) && (websiteCardRaw as any).details.length > 0) {
-								websiteCard = (websiteCardRaw as any).details[0];
-							} else if (typeof (websiteCardRaw as any).details === 'object') {
-								websiteCard = (websiteCardRaw as any).details;
-							}
-						}
-
-						// Load thumbnail binary only when explicitly provided and OG tags are not fetched
-						let thumbnailBinary: Buffer | undefined;
-						if (websiteCard.thumbnailBinaryProperty && websiteCard.fetchOpenGraphTags === false) {
-							thumbnailBinary = await this.helpers.getBinaryDataBuffer(i, websiteCard.thumbnailBinaryProperty);
-						}
-
-						// Validate URL; ignore invalid/relative URLs
-						let websiteCardUri = websiteCard.uri;
-						try {
-							if (websiteCardUri) new URL(websiteCardUri);
-						} catch {
-							websiteCardUri = undefined;
-						}
-
-						// Construct websiteCardPayload analogously to imagePayload
-						let websiteCardPayload:
-							| {
-							uri: string | undefined;
-							title: string | undefined;
-							description: string | undefined;
-							thumbnailBinary: Buffer | undefined;
-							fetchOpenGraphTags: boolean | undefined;
-						} | undefined;
-
-						if (
-							websiteCardUri ||
-							websiteCard.title ||
-							websiteCard.description ||
-							thumbnailBinary ||
-							websiteCard.fetchOpenGraphTags !== undefined
-						) {
-							websiteCardPayload = {
-								uri: websiteCardUri ?? undefined,
-								title: websiteCard.title ?? undefined,
-								description: websiteCard.description ?? undefined,
-								thumbnailBinary: thumbnailBinary ?? undefined,
-								fetchOpenGraphTags: websiteCard.fetchOpenGraphTags ?? undefined,
-							};
-						}
-
-						// 🔁 was: console.debug(...)
-						Logger.debug('Prepared websiteCard payload', {
-							...itemMeta,
-							hasWebsiteCard: Boolean(websiteCardPayload),
-							hasThumbnailBinary: Boolean(thumbnailBinary),
-							websiteCardUri: websiteCardPayload?.uri,
-						});
-
-						// Handle optional image parameter (supports both flattened and .details shapes)
-						const imageParamRaw = this.getNodeParameter('image', i, {}) as any;
-						const imageParam = (imageParamRaw && imageParamRaw.details) ? imageParamRaw.details : imageParamRaw;
-						let imagePayload: {
-							alt?: string;
-							mimeType?: string;
-							binary?: Buffer;
-							width?: number;
-							height?: number;
-						} | undefined;
-
-						if (imageParam && (imageParam.binary || imageParam.alt || imageParam.mimeType)) {
-							let imageBuffer: Buffer | undefined;
-							if (imageParam.binary) {
-								imageBuffer = await this.helpers.getBinaryDataBuffer(i, imageParam.binary as string);
-							}
-							imagePayload = {
-								alt: imageParam.alt,
-								mimeType: imageParam.mimeType,
-								binary: imageBuffer,
-								width: imageParam.width,
-								height: imageParam.height,
-							};
-						}
-
-						Logger.info('Posting to Bluesky', {
-							...itemMeta,
-							hasImage: Boolean(imagePayload?.binary),
-							hasAltText: Boolean(imagePayload?.alt),
-							langs,
-							postTextPreview: postText?.slice(0, 60),
-						});
-
-						const postData = await postOperation(
-							agent,
-							postText,
-							langs,
-							websiteCardPayload,
-							imagePayload
+						returnData.push(
+							...(await postOperation(
+								agent,
+								postText,
+								langs,
+								websiteCardPayload,
+								imagePayload,
+								mediaItemsPayload,
+							)),
 						);
+						break;
+					}
 
-						Logger.debug('Post operation completed', { ...itemMeta, itemsReturned: postData.length });
+					case 'reply': {
+						const replyText = this.getNodeParameter('replyText', i) as string;
+						const replyLangs = this.getNodeParameter('replyLangs', i) as string[];
+						const uri = this.getNodeParameter('uri', i) as string;
+						const cid = this.getNodeParameter('cid', i) as string;
+						const websiteCardPayload = await getWebsiteCardPayload(this, i);
+						const mediaItemsPayload = await getMediaItemsPayload(this, i);
 
-						returnData.push(...postData);
+						returnData.push(
+							...(await replyOperation(
+								agent,
+								replyText,
+								replyLangs,
+								uri,
+								cid,
+								websiteCardPayload,
+								mediaItemsPayload,
+							)),
+						);
+						break;
+					}
+
+					case 'quote': {
+						const quoteText = this.getNodeParameter('quoteText', i) as string;
+						const quoteLangs = this.getNodeParameter('quoteLangs', i) as string[];
+						const uri = this.getNodeParameter('uri', i) as string;
+						const cid = this.getNodeParameter('cid', i) as string;
+
+						returnData.push(...(await quoteOperation(agent, quoteText, quoteLangs, uri, cid)));
 						break;
 					}
 
 					case 'deletePost': {
-						const uriDeletePost = this.getNodeParameter('uri', i) as string;
-						Logger.info('Deleting post', { ...itemMeta, uri: uriDeletePost });
-						const deletePostData = await deletePostOperation(agent, uriDeletePost);
-						returnData.push(...deletePostData);
+						returnData.push(
+							...(await deletePostOperation(agent, this.getNodeParameter('uri', i) as string)),
+						);
 						break;
 					}
 
 					case 'like': {
-						const uriLike = this.getNodeParameter('uri', i) as string;
-						const cidLike = this.getNodeParameter('cid', i) as string;
-						Logger.debug('Liking post', { ...itemMeta, uri: uriLike, cidPresent: Boolean(cidLike) });
-						const likeData = await likeOperation(agent, uriLike, cidLike);
-						returnData.push(...likeData);
+						returnData.push(
+							...(await likeOperation(
+								agent,
+								this.getNodeParameter('uri', i) as string,
+								this.getNodeParameter('cid', i) as string,
+							)),
+						);
 						break;
 					}
 
 					case 'deleteLike': {
-						const uriDeleteLike = this.getNodeParameter('uri', i) as string;
-						Logger.debug('Deleting like', { ...itemMeta, uri: uriDeleteLike });
-						const deleteLikeData = await deleteLikeOperation(agent, uriDeleteLike);
-						returnData.push(...deleteLikeData);
+						returnData.push(
+							...(await deleteLikeOperation(agent, this.getNodeParameter('uri', i) as string)),
+						);
 						break;
 					}
 
 					case 'repost': {
-						const uriRepost = this.getNodeParameter('uri', i) as string;
-						const cidRepost = this.getNodeParameter('cid', i) as string;
-						Logger.debug('Reposting', { ...itemMeta, uri: uriRepost, cidPresent: Boolean(cidRepost) });
-						const repostData = await repostOperation(agent, uriRepost, cidRepost);
-						returnData.push(...repostData);
+						returnData.push(
+							...(await repostOperation(
+								agent,
+								this.getNodeParameter('uri', i) as string,
+								this.getNodeParameter('cid', i) as string,
+							)),
+						);
 						break;
 					}
 
 					case 'deleteRepost': {
-						const uriDeleteRepost = this.getNodeParameter('uri', i) as string;
-						Logger.debug('Deleting repost', { ...itemMeta, uri: uriDeleteRepost });
-						const deleteRepostData = await deleteRepostOperation(agent, uriDeleteRepost);
-						returnData.push(...deleteRepostData);
+						returnData.push(
+							...(await deleteRepostOperation(agent, this.getNodeParameter('uri', i) as string)),
+						);
 						break;
 					}
 
-					/**
-					 * Feed operations
-					 */
-
 					case 'getAuthorFeed': {
-						const authorFeedActor = this.getNodeParameter('actor', i) as string;
-						const authorFeedPostLimit = this.getNodeParameter('limit', i) as number;
-						Logger.debug('Fetching author feed', {
-							...itemMeta,
-							actor: authorFeedActor,
-							limit: authorFeedPostLimit,
-						});
-						const feedData = await getAuthorFeed(agent, authorFeedActor, authorFeedPostLimit);
-						returnData.push(...feedData);
+						returnData.push(
+							...(await getAuthorFeed(
+								agent,
+								this.getNodeParameter('actor', i) as string,
+								this.getNodeParameter('limit', i) as number,
+								(this.getNodeParameter('filter', i, '') as string) || undefined,
+							)),
+						);
+						break;
+					}
+
+					case 'getPostThread': {
+						returnData.push(
+							...(await getPostThread(
+								agent,
+								this.getNodeParameter('uri', i) as string,
+								this.getNodeParameter('depth', i) as number,
+								this.getNodeParameter('parentHeight', i) as number,
+							)),
+						);
 						break;
 					}
 
 					case 'getTimeline': {
-						const timelinePostLimit = this.getNodeParameter('limit', i) as number;
-						Logger.debug('Fetching timeline', { ...itemMeta, limit: timelinePostLimit });
-						const timelineData = await getTimeline(agent, timelinePostLimit);
-						returnData.push(...timelineData);
+						returnData.push(
+							...(await getTimeline(agent, this.getNodeParameter('limit', i) as number)),
+						);
 						break;
 					}
 
-					/**
-					 * User operations
-					 */
-
 					case 'getProfile': {
-						const actor = this.getNodeParameter('actor', i) as string;
-						Logger.debug('Getting profile', { ...itemMeta, actor });
-						const profileData = await getProfileOperation(agent, actor);
-						returnData.push(...profileData);
+						returnData.push(
+							...(await getProfileOperation(agent, this.getNodeParameter('actor', i) as string)),
+						);
+						break;
+					}
+
+					case 'listAllFollowers': {
+						returnData.push(
+							...(await listAllFollowersOperation(
+								agent,
+								this.getNodeParameter('handle', i) as string,
+								this.getNodeParameter('maxResults', i) as number,
+								this.getNodeParameter('pageSize', i) as number,
+							)),
+						);
+						break;
+					}
+
+					case 'listAllFollows': {
+						returnData.push(
+							...(await listAllFollowsOperation(
+								agent,
+								this.getNodeParameter('handle', i) as string,
+								this.getNodeParameter('maxResults', i) as number,
+								this.getNodeParameter('pageSize', i) as number,
+							)),
+						);
 						break;
 					}
 
 					case 'mute': {
-						const didMute = this.getNodeParameter('did', i) as string;
-						Logger.info('Muting user', { ...itemMeta, did: didMute });
-						const muteData = await muteOperation(agent, didMute);
-						returnData.push(...muteData);
+						returnData.push(
+							...(await muteOperation(agent, this.getNodeParameter('did', i) as string)),
+						);
 						break;
 					}
 
 					case 'unmute': {
-						const didUnmute = this.getNodeParameter('did', i) as string;
-						Logger.info('Unmuting user', { ...itemMeta, did: didUnmute });
-						const unmuteData = await unmuteOperation(agent, didUnmute);
-						returnData.push(...unmuteData);
+						returnData.push(
+							...(await unmuteOperation(agent, this.getNodeParameter('did', i) as string)),
+						);
 						break;
 					}
 
 					case 'block': {
-						const didBlock = this.getNodeParameter('did', i) as string;
-						Logger.warn('Blocking user', { ...itemMeta, did: didBlock });
-						const blockData = await blockOperation(agent, didBlock);
-						returnData.push(...blockData);
+						returnData.push(
+							...(await blockOperation(agent, this.getNodeParameter('did', i) as string)),
+						);
 						break;
 					}
 
 					case 'unblock': {
-						const uriUnblock = this.getNodeParameter('uri', i) as string;
-						Logger.warn('Unblocking user', { ...itemMeta, uri: uriUnblock });
-						const unblockData = await unblockOperation(agent, uriUnblock);
-						returnData.push(...unblockData);
+						returnData.push(
+							...(await unblockOperation(agent, this.getNodeParameter('uri', i) as string)),
+						);
+						break;
+					}
+
+					case 'searchUsers': {
+						returnData.push(
+							...(await searchUsersOperation(
+								agent,
+								this.getNodeParameter('q', i) as string,
+								this.getNodeParameter('limit', i) as number,
+							)),
+						);
+						break;
+					}
+
+					case 'searchPosts': {
+						returnData.push(
+							...(await searchPostsOperation(
+								agent,
+								this.getNodeParameter('q', i) as string,
+								this.getNodeParameter('limit', i) as number,
+								(this.getNodeParameter('author', i, '') as string) || undefined,
+							)),
+						);
+						break;
+					}
+
+					case 'muteThread': {
+						returnData.push(
+							...(await muteThreadOperation(agent, this.getNodeParameter('uri', i) as string)),
+						);
+						break;
+					}
+
+					case 'listNotifications': {
+						returnData.push(
+							...(await listNotificationsOperation(
+								agent,
+								this.getNodeParameter('limit', i) as number,
+								this.getNodeParameter('unreadOnly', i) as boolean,
+								this.getNodeParameter('markRetrievedAsRead', i) as boolean,
+							)),
+						);
+						break;
+					}
+
+					case 'getUnreadCount': {
+						returnData.push(...(await getUnreadCountOperation(agent)));
+						break;
+					}
+
+					case 'updateSeenNotifications': {
+						returnData.push(
+							...(await updateSeenNotificationsOperation(
+								agent,
+								(this.getNodeParameter('seenAt', i, '') as string) || undefined,
+							)),
+						);
+						break;
+					}
+
+					case 'getPostInteractions': {
+						returnData.push(
+							...(await getPostInteractionsOperation(
+								agent,
+								this.getNodeParameter('uri', i) as string,
+								this.getNodeParameter('interactionTypes', i) as string[],
+								this.getNodeParameter('interactionLimit', i) as number,
+							)),
+						);
+						break;
+					}
+
+					case 'createList': {
+						returnData.push(
+							...(await createListOperation(
+								agent,
+								this.getNodeParameter('name', i) as string,
+								this.getNodeParameter('purpose', i) as string,
+								(this.getNodeParameter('description', i, '') as string) || undefined,
+							)),
+						);
+						break;
+					}
+
+					case 'updateList': {
+						returnData.push(
+							...(await updateListOperation(
+								agent,
+								this.getNodeParameter('listUri', i) as string,
+								this.getNodeParameter('name', i) as string,
+								this.getNodeParameter('purpose', i) as string,
+								(this.getNodeParameter('description', i, '') as string) || undefined,
+							)),
+						);
+						break;
+					}
+
+					case 'deleteList': {
+						returnData.push(
+							...(await deleteListOperation(agent, this.getNodeParameter('listUri', i) as string)),
+						);
+						break;
+					}
+
+					case 'getLists': {
+						returnData.push(
+							...(await getListsOperation(
+								agent,
+								this.getNodeParameter('actor', i) as string,
+								this.getNodeParameter('limit', i) as number,
+							)),
+						);
+						break;
+					}
+
+					case 'getListFeed': {
+						returnData.push(
+							...(await getListFeedOperation(
+								agent,
+								this.getNodeParameter('listUri', i) as string,
+								this.getNodeParameter('limit', i) as number,
+							)),
+						);
+						break;
+					}
+
+					case 'addUserToList': {
+						returnData.push(
+							...(await addUserToListOperation(
+								agent,
+								this.getNodeParameter('listUri', i) as string,
+								this.getNodeParameter('userDid', i) as string,
+							)),
+						);
+						break;
+					}
+
+					case 'removeUserFromList': {
+						returnData.push(
+							...(await removeUserFromListOperation(
+								agent,
+								this.getNodeParameter('listItemUri', i) as string,
+							)),
+						);
 						break;
 					}
 
@@ -323,7 +563,6 @@ export class BlueskyV2 implements INodeType {
 						Logger.warn('Unknown operation requested', itemMeta);
 				}
 			} catch (error) {
-				// log the error with context
 				Logger.error('Operation failed', { ...itemMeta, error: (error as Error)?.message });
 
 				if (this.continueOnFail()) {
@@ -333,11 +572,16 @@ export class BlueskyV2 implements INodeType {
 					});
 					continue;
 				}
+
 				throw new NodeApiError(this.getNode(), error as JsonObject);
 			}
 		}
 
-		Logger.info('Node execution finished', { ...nodeMeta, itemsProcessed: items.length, itemsReturned: returnData.length });
+		Logger.info('Node execution finished', {
+			...nodeMeta,
+			itemsProcessed: items.length,
+			itemsReturned: returnData.length,
+		});
 
 		return [returnData];
 	}
