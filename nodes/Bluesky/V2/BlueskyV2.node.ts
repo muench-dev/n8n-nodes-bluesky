@@ -53,6 +53,13 @@ import {
 	updateListOperation,
 } from './listOperations';
 import { searchPostsOperation, searchProperties, searchUsersOperation } from './searchOperations';
+import {
+	createDraftOperation,
+	deleteDraftOperation,
+	draftProperties,
+	getDraftsOperation,
+	updateDraftOperation,
+} from './draftOperations';
 
 type MediaItemPayload = {
 	alt?: string;
@@ -210,6 +217,7 @@ export class BlueskyV2 implements INodeType {
 			properties: [
 				resourcesProperty,
 				...analyticsProperties,
+				...draftProperties,
 				...graphProperties,
 				...listProperties,
 				...userProperties,
@@ -576,6 +584,51 @@ export class BlueskyV2 implements INodeType {
 							...(await removeUserFromListOperation(
 								agent,
 								this.getNodeParameter('listItemUri', i) as string,
+							)),
+						);
+						break;
+					}
+
+					case 'createDraft': {
+						returnData.push(
+							...(await createDraftOperation(
+								agent,
+								this.getNodeParameter('draftPostText', i) as string,
+								this.getNodeParameter('draftLangs', i) as string[],
+							)),
+						);
+						break;
+					}
+
+					case 'getDrafts': {
+						const cursor = (this.getNodeParameter('draftCursor', i, '') as string) || undefined;
+						returnData.push(
+							...(await getDraftsOperation(
+								agent,
+								this.getNodeParameter('draftLimit', i) as number,
+								cursor,
+							)),
+						);
+						break;
+					}
+
+					case 'updateDraft': {
+						returnData.push(
+							...(await updateDraftOperation(
+								agent,
+								this.getNodeParameter('draftId', i) as string,
+								this.getNodeParameter('draftPostText', i) as string,
+								this.getNodeParameter('draftLangs', i) as string[],
+							)),
+						);
+						break;
+					}
+
+					case 'deleteDraft': {
+						returnData.push(
+							...(await deleteDraftOperation(
+								agent,
+								this.getNodeParameter('draftId', i) as string,
 							)),
 						);
 						break;
