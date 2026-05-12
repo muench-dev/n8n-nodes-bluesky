@@ -127,7 +127,46 @@ describe('draftOperations', () => {
 		});
 
 		it('should throw for invalid JSON payloads', () => {
-			expect(() => parseDraftPayload('{invalid-json')).toThrow('Draft payload must be valid JSON');
+			expect(() => parseDraftPayload('{invalid-json')).toThrow(
+				'Draft payload must be valid JSON:',
+			);
+		});
+
+		it('should throw when payload is not a JSON object', () => {
+			expect(() => parseDraftPayload('null')).toThrow('Draft payload must be a JSON object');
+			expect(() => parseDraftPayload('[]')).toThrow('Draft payload must be a JSON object');
+		});
+
+		it('should throw when posts are missing, invalid, or empty', () => {
+			expect(() => parseDraftPayload(JSON.stringify({ langs: ['en'] }))).toThrow(
+				'Draft payload must include "posts"',
+			);
+			expect(() => parseDraftPayload(JSON.stringify({ posts: {} }))).toThrow(
+				'Draft payload "posts" must be an array',
+			);
+			expect(() => parseDraftPayload(JSON.stringify({ posts: [] }))).toThrow(
+				'Draft payload "posts" must not be empty',
+			);
+		});
+
+		it('should throw when a draft post has no valid text field', () => {
+			expect(() =>
+				parseDraftPayload(
+					JSON.stringify({
+						posts: [{}],
+					}),
+				),
+			).toThrow('Each draft post must include a "text" string');
+		});
+
+		it('should throw when a draft post is not an object', () => {
+			expect(() =>
+				parseDraftPayload(
+					JSON.stringify({
+						posts: ['invalid'],
+					}),
+				),
+			).toThrow('Each draft post must be a JSON object');
 		});
 	});
 
@@ -148,6 +187,22 @@ describe('draftOperations', () => {
 				posts: [{ $type: 'app.bsky.draft.defs#draftPost', text: 'Advanced draft' }],
 				langs: ['de'],
 			});
+		});
+
+		it('should use simple mode for text and language input', () => {
+			const payload = getDraftPayloadFromInput('simple', 'Simple draft', ['it']);
+
+			expect(payload).toEqual({
+				$type: 'app.bsky.draft.defs#draft',
+				posts: [{ $type: 'app.bsky.draft.defs#draftPost', text: 'Simple draft' }],
+				langs: ['it'],
+			});
+		});
+
+		it('should fail when payload mode is selected without payload JSON', () => {
+			expect(() => getDraftPayloadFromInput('payload', 'Ignored text', ['en'], '   ')).toThrow(
+				'Draft payload is required when using payload mode',
+			);
 		});
 	});
 });

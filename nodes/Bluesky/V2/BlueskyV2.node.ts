@@ -56,6 +56,7 @@ import { searchPostsOperation, searchProperties, searchUsersOperation } from './
 import {
 	createDraftOperation,
 	deleteDraftOperation,
+	DraftPayloadInputMode,
 	draftProperties,
 	getDraftPayloadFromInput,
 	getDraftsOperation,
@@ -591,9 +592,11 @@ export class BlueskyV2 implements INodeType {
 					}
 
 					case 'createDraft': {
-						const draftMode = this.getNodeParameter('draftInputMode', i, 'simple') as
-							| 'simple'
-							| 'payload';
+						const draftMode = this.getNodeParameter(
+							'draftInputMode',
+							i,
+							'simple',
+						) as DraftPayloadInputMode;
 						const draftPayload = getDraftPayloadFromInput(
 							draftMode,
 							this.getNodeParameter('draftPostText', i, '') as string,
@@ -619,9 +622,11 @@ export class BlueskyV2 implements INodeType {
 					}
 
 					case 'updateDraft': {
-						const draftMode = this.getNodeParameter('draftInputMode', i, 'simple') as
-							| 'simple'
-							| 'payload';
+						const draftMode = this.getNodeParameter(
+							'draftInputMode',
+							i,
+							'simple',
+						) as DraftPayloadInputMode;
 						const draftPayload = getDraftPayloadFromInput(
 							draftMode,
 							this.getNodeParameter('draftPostText', i, '') as string,

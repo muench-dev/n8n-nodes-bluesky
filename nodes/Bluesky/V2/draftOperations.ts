@@ -2,7 +2,15 @@ import { AppBskyDraftDefs, AtpAgent } from '@atproto/api';
 import { IDataObject, INodeExecutionData, INodeProperties } from 'n8n-workflow';
 import { getLanguageOptions } from './languages';
 
-type DraftPayloadInputMode = 'simple' | 'payload';
+export type DraftPayloadInputMode = 'simple' | 'payload';
+const defaultDraftPayloadJson = JSON.stringify(
+	{
+		posts: [{ text: 'Hello from draft payload' }],
+		langs: ['en'],
+	},
+	null,
+	2,
+);
 
 export const draftProperties: INodeProperties[] = [
 	{
@@ -120,8 +128,7 @@ export const draftProperties: INodeProperties[] = [
 		name: 'draftPayload',
 		type: 'string',
 		required: true,
-		default:
-			'{\n  "posts": [\n    {\n      "text": "Hello from draft payload"\n    }\n  ],\n  "langs": [\n    "en"\n  ]\n}',
+		default: defaultDraftPayloadJson,
 		typeOptions: {
 			rows: 10,
 		},
@@ -188,22 +195,35 @@ export function parseDraftPayload(rawPayload: string): AppBskyDraftDefs.Draft {
 
 	try {
 		parsedPayload = JSON.parse(rawPayload);
-	} catch {
-		throw new Error('Draft payload must be valid JSON');
+	} catch (error) {
+		const message = error instanceof Error ? error.message : 'Unknown parsing error';
+		throw new Error(`Draft payload must be valid JSON: ${message}`);
 	}
 
-	if (!parsedPayload || typeof parsedPayload !== 'object' || Array.isArray(parsedPayload)) {
+	if (typeof parsedPayload !== 'object' || parsedPayload === null || Array.isArray(parsedPayload)) {
 		throw new Error('Draft payload must be a JSON object');
 	}
 
 	const payload = parsedPayload as AppBskyDraftDefs.Draft;
 
-	if (!Array.isArray(payload.posts) || payload.posts.length === 0) {
-		throw new Error('Draft payload must include a non-empty "posts" array');
+	if (payload.posts === undefined) {
+		throw new Error('Draft payload must include "posts"');
+	}
+
+	if (!Array.isArray(payload.posts)) {
+		throw new Error('Draft payload "posts" must be an array');
+	}
+
+	if (payload.posts.length === 0) {
+		throw new Error('Draft payload "posts" must not be empty');
 	}
 
 	for (const post of payload.posts) {
-		if (!post || typeof post !== 'object' || typeof post.text !== 'string') {
+		if (typeof post !== 'object' || post === null) {
+			throw new Error('Each draft post must be a JSON object');
+		}
+
+		if (typeof post.text !== 'string') {
 			throw new Error('Each draft post must include a "text" string');
 		}
 	}
@@ -225,7 +245,11 @@ export function getDraftPayloadFromInput(
 	rawPayload?: string,
 ): AppBskyDraftDefs.Draft {
 	if (mode === 'payload') {
-		return parseDraftPayload(rawPayload ?? '');
+		if (!rawPayload || !rawPayload.trim()) {
+			throw new Error('Draft payload is required when using payload mode');
+		}
+
+		return parseDraftPayload(rawPayload);
 	}
 
 	return createSimpleDraftPayload(postText, langs);
