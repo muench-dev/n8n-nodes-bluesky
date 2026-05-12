@@ -1,7 +1,10 @@
 import {
+	createSimpleDraftPayload,
 	createDraftOperation,
 	deleteDraftOperation,
+	getDraftPayloadFromInput,
 	getDraftsOperation,
+	parseDraftPayload,
 	updateDraftOperation,
 } from '../draftOperations';
 import { AtpAgent } from '@atproto/api';
@@ -32,14 +35,11 @@ describe('draftOperations', () => {
 		it('should create a draft and return its id', async () => {
 			createDraft.mockResolvedValue({ data: { id: 'draft-id-1' } });
 
-			const result = await createDraftOperation(agent, 'Hello draft', ['en']);
+			const draft = createSimpleDraftPayload('Hello draft', ['en']);
+			const result = await createDraftOperation(agent, draft);
 
 			expect(createDraft).toHaveBeenCalledWith({
-				draft: {
-					$type: 'app.bsky.draft.defs#draft',
-					posts: [{ $type: 'app.bsky.draft.defs#draftPost', text: 'Hello draft' }],
-					langs: ['en'],
-				},
+				draft,
 			});
 			expect(result).toEqual([{ json: { id: 'draft-id-1' } }]);
 		});
@@ -82,18 +82,15 @@ describe('draftOperations', () => {
 	describe('updateDraftOperation', () => {
 		it('should update a draft and return confirmation', async () => {
 			updateDraft.mockResolvedValue({});
+			const draft = createSimpleDraftPayload('Updated text', ['de']);
 
-			const result = await updateDraftOperation(agent, 'draft-id-1', 'Updated text', ['de']);
+			const result = await updateDraftOperation(agent, 'draft-id-1', draft);
 
 			expect(updateDraft).toHaveBeenCalledWith({
 				draft: {
 					$type: 'app.bsky.draft.defs#draftWithId',
 					id: 'draft-id-1',
-					draft: {
-						$type: 'app.bsky.draft.defs#draft',
-						posts: [{ $type: 'app.bsky.draft.defs#draftPost', text: 'Updated text' }],
-						langs: ['de'],
-					},
+					draft,
 				},
 			});
 			expect(result).toEqual([{ json: { id: 'draft-id-1', updated: true } }]);
@@ -108,6 +105,49 @@ describe('draftOperations', () => {
 
 			expect(deleteDraft).toHaveBeenCalledWith({ id: 'draft-id-1' });
 			expect(result).toEqual([{ json: { id: 'draft-id-1', deleted: true } }]);
+		});
+	});
+
+	describe('parseDraftPayload', () => {
+		it('should parse payload and normalize missing $type values', () => {
+			const payload = parseDraftPayload(
+				JSON.stringify({
+					posts: [{ text: 'Payload text' }],
+					langs: ['en'],
+					deviceName: 'n8n',
+				}),
+			);
+
+			expect(payload).toEqual({
+				$type: 'app.bsky.draft.defs#draft',
+				posts: [{ $type: 'app.bsky.draft.defs#draftPost', text: 'Payload text' }],
+				langs: ['en'],
+				deviceName: 'n8n',
+			});
+		});
+
+		it('should throw for invalid JSON payloads', () => {
+			expect(() => parseDraftPayload('{invalid-json')).toThrow('Draft payload must be valid JSON');
+		});
+	});
+
+	describe('getDraftPayloadFromInput', () => {
+		it('should use payload mode for advanced draft JSON', () => {
+			const payload = getDraftPayloadFromInput(
+				'payload',
+				'Ignored text',
+				['en'],
+				JSON.stringify({
+					posts: [{ text: 'Advanced draft' }],
+					langs: ['de'],
+				}),
+			);
+
+			expect(payload).toEqual({
+				$type: 'app.bsky.draft.defs#draft',
+				posts: [{ $type: 'app.bsky.draft.defs#draftPost', text: 'Advanced draft' }],
+				langs: ['de'],
+			});
 		});
 	});
 });

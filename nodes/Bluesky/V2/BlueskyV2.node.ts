@@ -57,6 +57,7 @@ import {
 	createDraftOperation,
 	deleteDraftOperation,
 	draftProperties,
+	getDraftPayloadFromInput,
 	getDraftsOperation,
 	updateDraftOperation,
 } from './draftOperations';
@@ -590,12 +591,17 @@ export class BlueskyV2 implements INodeType {
 					}
 
 					case 'createDraft': {
+						const draftMode = this.getNodeParameter('draftInputMode', i, 'simple') as
+							| 'simple'
+							| 'payload';
+						const draftPayload = getDraftPayloadFromInput(
+							draftMode,
+							this.getNodeParameter('draftPostText', i, '') as string,
+							this.getNodeParameter('draftLangs', i, ['en']) as string[],
+							this.getNodeParameter('draftPayload', i, '') as string,
+						);
 						returnData.push(
-							...(await createDraftOperation(
-								agent,
-								this.getNodeParameter('draftPostText', i) as string,
-								this.getNodeParameter('draftLangs', i) as string[],
-							)),
+							...(await createDraftOperation(agent, draftPayload)),
 						);
 						break;
 					}
@@ -613,12 +619,20 @@ export class BlueskyV2 implements INodeType {
 					}
 
 					case 'updateDraft': {
+						const draftMode = this.getNodeParameter('draftInputMode', i, 'simple') as
+							| 'simple'
+							| 'payload';
+						const draftPayload = getDraftPayloadFromInput(
+							draftMode,
+							this.getNodeParameter('draftPostText', i, '') as string,
+							this.getNodeParameter('draftLangs', i, ['en']) as string[],
+							this.getNodeParameter('draftPayload', i, '') as string,
+						);
 						returnData.push(
 							...(await updateDraftOperation(
 								agent,
 								this.getNodeParameter('draftId', i) as string,
-								this.getNodeParameter('draftPostText', i) as string,
-								this.getNodeParameter('draftLangs', i) as string[],
+								draftPayload,
 							)),
 						);
 						break;
