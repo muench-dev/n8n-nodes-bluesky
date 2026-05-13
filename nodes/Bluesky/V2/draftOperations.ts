@@ -2,16 +2,6 @@ import { AppBskyDraftDefs, AtpAgent } from '@atproto/api';
 import { IDataObject, INodeExecutionData, INodeProperties } from 'n8n-workflow';
 import { getLanguageOptions } from './languages';
 
-export type DraftPayloadInputMode = 'simple' | 'payload';
-const defaultDraftPayloadJson = JSON.stringify(
-	{
-		posts: [{ text: 'Hello from draft payload' }],
-		langs: ['en'],
-	},
-	null,
-	2,
-);
-
 export const draftProperties: INodeProperties[] = [
 	{
 		displayName: 'Operation',
@@ -52,30 +42,6 @@ export const draftProperties: INodeProperties[] = [
 		default: 'createDraft',
 	},
 	{
-		displayName: 'Input Mode',
-		name: 'draftInputMode',
-		type: 'options',
-		default: 'simple',
-		options: [
-			{
-				name: 'Simple',
-				value: 'simple',
-				description: 'Use text and language fields',
-			},
-			{
-				name: 'Full Draft Payload',
-				value: 'payload',
-				description: 'Provide the complete draft payload as JSON',
-			},
-		],
-		displayOptions: {
-			show: {
-				resource: ['draft'],
-				operation: ['createDraft', 'updateDraft'],
-			},
-		},
-	},
-	{
 		displayName: 'Draft ID',
 		name: 'draftId',
 		type: 'string',
@@ -91,25 +57,19 @@ export const draftProperties: INodeProperties[] = [
 	},
 	{
 		displayName: 'Post Text',
-		name: 'draftPostText',
+		name: 'postText',
 		type: 'string',
 		default: '',
-		required: true,
-		description: 'The text content of the draft post',
-		typeOptions: {
-			rows: 4,
-		},
 		displayOptions: {
 			show: {
 				resource: ['draft'],
 				operation: ['createDraft', 'updateDraft'],
-				draftInputMode: ['simple'],
 			},
 		},
 	},
 	{
 		displayName: 'Language Names or IDs',
-		name: 'draftLangs',
+		name: 'langs',
 		type: 'multiOptions',
 		description:
 			'Choose from the list of supported languages. Choose from the list, or specify IDs using an <a href="https://docs.n8n.io/code-examples/expressions/">expression</a>.',
@@ -119,26 +79,6 @@ export const draftProperties: INodeProperties[] = [
 			show: {
 				resource: ['draft'],
 				operation: ['createDraft', 'updateDraft'],
-				draftInputMode: ['simple'],
-			},
-		},
-	},
-	{
-		displayName: 'Draft Payload (JSON)',
-		name: 'draftPayload',
-		type: 'string',
-		required: true,
-		default: defaultDraftPayloadJson,
-		typeOptions: {
-			rows: 10,
-		},
-		description:
-			'Full app.bsky.draft.defs#draft payload JSON, including optional labels and embeds',
-		displayOptions: {
-			show: {
-				resource: ['draft'],
-				operation: ['createDraft', 'updateDraft'],
-				draftInputMode: ['payload'],
 			},
 		},
 	},
@@ -188,71 +128,6 @@ export function createSimpleDraftPayload(
 		],
 		langs,
 	};
-}
-
-export function parseDraftPayload(rawPayload: string): AppBskyDraftDefs.Draft {
-	let parsedPayload: unknown;
-
-	try {
-		parsedPayload = JSON.parse(rawPayload);
-	} catch (error) {
-		const message = error instanceof Error ? error.message : 'Unknown parsing error';
-		throw new Error(`Draft payload must be valid JSON: ${message}`);
-	}
-
-	if (typeof parsedPayload !== 'object' || parsedPayload === null || Array.isArray(parsedPayload)) {
-		throw new Error('Draft payload must be a JSON object');
-	}
-
-	const payload = parsedPayload as AppBskyDraftDefs.Draft;
-
-	if (payload.posts === undefined) {
-		throw new Error('Draft payload must include "posts"');
-	}
-
-	if (!Array.isArray(payload.posts)) {
-		throw new Error('Draft payload "posts" must be an array');
-	}
-
-	if (payload.posts.length === 0) {
-		throw new Error('Draft payload "posts" must not be empty');
-	}
-
-	for (const post of payload.posts) {
-		if (typeof post !== 'object' || post === null) {
-			throw new Error('Each draft post must be a JSON object');
-		}
-
-		if (typeof post.text !== 'string') {
-			throw new Error('Each draft post must include a "text" string');
-		}
-	}
-
-	return {
-		...payload,
-		$type: payload.$type ?? 'app.bsky.draft.defs#draft',
-		posts: payload.posts.map((post) => ({
-			...post,
-			$type: post.$type ?? 'app.bsky.draft.defs#draftPost',
-		})),
-	};
-}
-
-export function getDraftPayloadFromInput(
-	mode: DraftPayloadInputMode,
-	postText: string,
-	langs: string[],
-	rawPayload?: string,
-): AppBskyDraftDefs.Draft {
-	if (mode === 'payload') {
-		if (!rawPayload || !rawPayload.trim()) {
-			throw new Error('Draft payload is required when using payload mode');
-		}
-
-		return parseDraftPayload(rawPayload);
-	}
-
-	return createSimpleDraftPayload(postText, langs);
 }
 
 export async function createDraftOperation(
