@@ -72,6 +72,27 @@ Feed responses are normalized and include post metadata such as author details, 
 - Update Seen Notifications
 - Get Post Interactions
 
+### Draft
+
+- Create Draft
+- Update Draft
+- Get Drafts
+- Publish Draft
+- Delete Draft
+
+Draft create/update supports:
+
+- post text and language tags
+- external URI embeds
+- quote embeds via quote post URI + CID
+
+Draft behavior:
+
+- a draft can only use one embed type (external URI or quote embed)
+- Publish Draft publishes a single draft post or full draft thread, then attempts to delete the draft
+- Publish Draft output includes `uri`, `cid`, `draftId`, and `draftDeleted` for each published post
+- image draft embeds are not supported in this node because Bluesky draft image refs are device-local paths
+
 ### Graph
 
 - Mute Thread
