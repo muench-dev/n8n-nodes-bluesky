@@ -166,14 +166,20 @@ function buildDraftPayload(
 	quoteUri?: string,
 	quoteCid?: string,
 ): AppBskyDraftDefs.Draft {
-	const hasQuoteEmbed = Boolean(quoteUri && quoteCid);
-	const hasPartialQuote = Boolean(quoteUri || quoteCid) && !hasQuoteEmbed;
+	const quoteRecord =
+		quoteUri && quoteCid
+			? {
+					uri: quoteUri,
+					cid: quoteCid,
+				}
+			: undefined;
+	const hasPartialQuote = Boolean(quoteUri || quoteCid) && !quoteRecord;
 
 	if (hasPartialQuote) {
 		throw new Error('Quote Post URI and Quote Post CID must be provided together.');
 	}
 
-	if (externalUri && hasQuoteEmbed) {
+	if (externalUri && quoteRecord) {
 		throw new Error(
 			'A draft post can only have one embed type. Provide either an External URI or a Quote Post URI/CID, not both.',
 		);
@@ -207,11 +213,11 @@ function buildDraftPayload(
 				uri: normalizedExternalUri,
 			},
 		];
-	} else if (hasQuoteEmbed) {
+	} else if (quoteRecord) {
 		draftPost.embedRecords = [
 			{
 				$type: 'app.bsky.draft.defs#draftEmbedRecord',
-				record: { uri: quoteUri!, cid: quoteCid! },
+				record: quoteRecord,
 			},
 		];
 	}
