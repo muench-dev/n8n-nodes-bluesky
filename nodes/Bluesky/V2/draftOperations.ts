@@ -166,10 +166,39 @@ function buildDraftPayload(
 	quoteUri?: string,
 	quoteCid?: string,
 ): AppBskyDraftDefs.Draft {
-	if (externalUri && (quoteUri || quoteCid)) {
+	const quoteRecord =
+		quoteUri && quoteCid
+			? {
+					uri: quoteUri,
+					cid: quoteCid,
+				}
+			: undefined;
+	const hasIncompleteQuote = Boolean(quoteUri) !== Boolean(quoteCid);
+
+	if (hasIncompleteQuote) {
+		throw new Error('Quote Post URI and Quote Post CID must be provided together.');
+	}
+
+	if (externalUri && quoteRecord) {
 		throw new Error(
 			'A draft post can only have one embed type. Provide either an External URI or a Quote Post URI/CID, not both.',
 		);
+	}
+
+	let normalizedExternalUri: string | undefined;
+	if (externalUri) {
+		let parsedExternalUri: URL;
+		try {
+			parsedExternalUri = new URL(externalUri);
+		} catch {
+			throw new Error('External URI must be a valid URL.');
+		}
+
+		if (!['http:', 'https:'].includes(parsedExternalUri.protocol)) {
+			throw new Error('External URI must use the http or https scheme.');
+		}
+
+		normalizedExternalUri = parsedExternalUri.toString();
 	}
 
 	const draftPost: AppBskyDraftDefs.DraftPost = {
@@ -177,18 +206,18 @@ function buildDraftPayload(
 		text: postText,
 	};
 
-	if (externalUri) {
+	if (normalizedExternalUri) {
 		draftPost.embedExternals = [
 			{
 				$type: 'app.bsky.draft.defs#draftEmbedExternal',
-				uri: externalUri,
+				uri: normalizedExternalUri,
 			},
 		];
-	} else if (quoteUri && quoteCid) {
+	} else if (quoteRecord) {
 		draftPost.embedRecords = [
 			{
 				$type: 'app.bsky.draft.defs#draftEmbedRecord',
-				record: { uri: quoteUri, cid: quoteCid },
+				record: quoteRecord,
 			},
 		];
 	}

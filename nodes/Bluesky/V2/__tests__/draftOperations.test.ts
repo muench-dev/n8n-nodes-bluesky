@@ -55,7 +55,7 @@ describe('draftOperations', () => {
 
 			const draftArg = createDraft.mock.calls[0][0].draft;
 			expect(draftArg.posts[0].embedExternals).toEqual([
-				{ $type: 'app.bsky.draft.defs#draftEmbedExternal', uri: 'https://example.com' },
+				{ $type: 'app.bsky.draft.defs#draftEmbedExternal', uri: 'https://example.com/' },
 			]);
 			expect(draftArg.posts[0].embedRecords).toBeUndefined();
 		});
@@ -75,13 +75,18 @@ describe('draftOperations', () => {
 			expect(draftArg.posts[0].embedExternals).toBeUndefined();
 		});
 
-		it('should not include a record embed when only quoteUri is provided', async () => {
-			createDraft.mockResolvedValue({ data: { id: 'draft-id-4' } });
+		it('should throw when only quoteUri is provided', async () => {
+			await expect(
+				createDraftOperation(agent, 'Incomplete quote', ['en'], undefined, 'at://post/1'),
+			).rejects.toThrow('Quote Post URI and Quote Post CID must be provided together.');
+			expect(createDraft).not.toHaveBeenCalled();
+		});
 
-			await createDraftOperation(agent, 'Incomplete quote', ['en'], undefined, 'at://post/1');
-
-			const draftArg = createDraft.mock.calls[0][0].draft;
-			expect(draftArg.posts[0].embedRecords).toBeUndefined();
+		it('should throw when only quoteCid is provided', async () => {
+			await expect(
+				createDraftOperation(agent, 'Incomplete quote', ['en'], undefined, undefined, 'cid-abc'),
+			).rejects.toThrow('Quote Post URI and Quote Post CID must be provided together.');
+			expect(createDraft).not.toHaveBeenCalled();
 		});
 
 		it('should throw when both externalUri and quoteUri/quoteCid are provided', async () => {
@@ -109,9 +114,21 @@ describe('draftOperations', () => {
 					'https://example.com',
 					'at://post/1',
 				),
-			).rejects.toThrow(
-				'A draft post can only have one embed type. Provide either an External URI or a Quote Post URI/CID, not both.',
+			).rejects.toThrow('Quote Post URI and Quote Post CID must be provided together.');
+			expect(createDraft).not.toHaveBeenCalled();
+		});
+
+		it('should throw when externalUri is invalid', async () => {
+			await expect(createDraftOperation(agent, 'Link post', ['en'], 'not-a-url')).rejects.toThrow(
+				'External URI must be a valid URL.',
 			);
+			expect(createDraft).not.toHaveBeenCalled();
+		});
+
+		it('should throw when externalUri uses an unsupported scheme', async () => {
+			await expect(
+				createDraftOperation(agent, 'Link post', ['en'], 'ftp://example.com'),
+			).rejects.toThrow('External URI must use the http or https scheme.');
 			expect(createDraft).not.toHaveBeenCalled();
 		});
 	});
@@ -183,7 +200,7 @@ describe('draftOperations', () => {
 
 			const draftArg = updateDraft.mock.calls[0][0].draft.draft;
 			expect(draftArg.posts[0].embedExternals).toEqual([
-				{ $type: 'app.bsky.draft.defs#draftEmbedExternal', uri: 'https://example.com' },
+				{ $type: 'app.bsky.draft.defs#draftEmbedExternal', uri: 'https://example.com/' },
 			]);
 		});
 	});
