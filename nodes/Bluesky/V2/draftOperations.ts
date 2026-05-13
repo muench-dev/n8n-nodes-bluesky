@@ -207,7 +207,7 @@ function buildDraftPayload(
 				uri: normalizedExternalUri,
 			},
 		];
-	} else if (hasQuoteEmbed && quoteUri && quoteCid) {
+	} else if (hasQuoteEmbed) {
 		draftPost.embedRecords = [
 			{
 				$type: 'app.bsky.draft.defs#draftEmbedRecord',
