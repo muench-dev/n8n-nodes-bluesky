@@ -211,7 +211,7 @@ function buildDraftPayload(
 		draftPost.embedRecords = [
 			{
 				$type: 'app.bsky.draft.defs#draftEmbedRecord',
-				record: { uri: quoteUri, cid: quoteCid },
+				record: { uri: quoteUri!, cid: quoteCid! },
 			},
 		];
 	}
