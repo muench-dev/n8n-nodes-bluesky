@@ -55,7 +55,7 @@ describe('draftOperations', () => {
 
 			const draftArg = createDraft.mock.calls[0][0].draft;
 			expect(draftArg.posts[0].embedExternals).toEqual([
-				{ $type: 'app.bsky.draft.defs#draftEmbedExternal', uri: 'https://example.com' },
+				{ $type: 'app.bsky.draft.defs#draftEmbedExternal', uri: 'https://example.com/' },
 			]);
 			expect(draftArg.posts[0].embedRecords).toBeUndefined();
 		});
@@ -200,7 +200,7 @@ describe('draftOperations', () => {
 
 			const draftArg = updateDraft.mock.calls[0][0].draft.draft;
 			expect(draftArg.posts[0].embedExternals).toEqual([
-				{ $type: 'app.bsky.draft.defs#draftEmbedExternal', uri: 'https://example.com' },
+				{ $type: 'app.bsky.draft.defs#draftEmbedExternal', uri: 'https://example.com/' },
 			]);
 		});
 	});
