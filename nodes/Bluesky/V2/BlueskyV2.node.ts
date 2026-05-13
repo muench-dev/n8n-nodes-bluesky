@@ -54,11 +54,11 @@ import {
 } from './listOperations';
 import { searchPostsOperation, searchProperties, searchUsersOperation } from './searchOperations';
 import {
-	createSimpleDraftPayload,
 	createDraftOperation,
 	deleteDraftOperation,
 	draftProperties,
 	getDraftsOperation,
+	publishDraftOperation,
 	updateDraftOperation,
 } from './draftOperations';
 
@@ -591,12 +591,15 @@ export class BlueskyV2 implements INodeType {
 					}
 
 					case 'createDraft': {
-						const draftPayload = createSimpleDraftPayload(
-							this.getNodeParameter('postText', i, '') as string,
-							this.getNodeParameter('langs', i, ['en']) as string[],
-						);
 						returnData.push(
-							...(await createDraftOperation(agent, draftPayload)),
+							...(await createDraftOperation(
+								agent,
+								this.getNodeParameter('postText', i, '') as string,
+								this.getNodeParameter('langs', i, ['en']) as string[],
+								(this.getNodeParameter('draftExternalUri', i, '') as string) || undefined,
+								(this.getNodeParameter('draftQuoteUri', i, '') as string) || undefined,
+								(this.getNodeParameter('draftQuoteCid', i, '') as string) || undefined,
+							)),
 						);
 						break;
 					}
@@ -614,15 +617,25 @@ export class BlueskyV2 implements INodeType {
 					}
 
 					case 'updateDraft': {
-						const draftPayload = createSimpleDraftPayload(
-							this.getNodeParameter('postText', i, '') as string,
-							this.getNodeParameter('langs', i, ['en']) as string[],
-						);
 						returnData.push(
 							...(await updateDraftOperation(
 								agent,
 								this.getNodeParameter('draftId', i) as string,
-								draftPayload,
+								this.getNodeParameter('postText', i, '') as string,
+								this.getNodeParameter('langs', i, ['en']) as string[],
+								(this.getNodeParameter('draftExternalUri', i, '') as string) || undefined,
+								(this.getNodeParameter('draftQuoteUri', i, '') as string) || undefined,
+								(this.getNodeParameter('draftQuoteCid', i, '') as string) || undefined,
+							)),
+						);
+						break;
+					}
+
+					case 'publishDraft': {
+						returnData.push(
+							...(await publishDraftOperation(
+								agent,
+								this.getNodeParameter('draftId', i) as string,
 							)),
 						);
 						break;
