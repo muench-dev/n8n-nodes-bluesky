@@ -173,7 +173,7 @@ function buildDraftPayload(
 					cid: quoteCid,
 				}
 			: undefined;
-	const hasPartialQuote = Boolean(quoteUri || quoteCid) && !quoteRecord;
+	const hasPartialQuote = Boolean(quoteUri) !== Boolean(quoteCid);
 
 	if (hasPartialQuote) {
 		throw new Error('Quote Post URI and Quote Post CID must be provided together.');
