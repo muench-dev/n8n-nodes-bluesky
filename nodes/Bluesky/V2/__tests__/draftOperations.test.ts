@@ -57,6 +57,7 @@ describe('draftOperations', () => {
 			expect(draftArg.posts[0].embedExternals).toEqual([
 				{ $type: 'app.bsky.draft.defs#draftEmbedExternal', uri: 'https://example.com' },
 			]);
+			expect(draftArg.posts[0].embedRecords).toBeUndefined();
 		});
 
 		it('should include a record embed when quoteUri and quoteCid are provided', async () => {
@@ -71,6 +72,7 @@ describe('draftOperations', () => {
 					record: { uri: 'at://post/1', cid: 'cid-abc' },
 				},
 			]);
+			expect(draftArg.posts[0].embedExternals).toBeUndefined();
 		});
 
 		it('should not include a record embed when only quoteUri is provided', async () => {
@@ -80,6 +82,37 @@ describe('draftOperations', () => {
 
 			const draftArg = createDraft.mock.calls[0][0].draft;
 			expect(draftArg.posts[0].embedRecords).toBeUndefined();
+		});
+
+		it('should throw when both externalUri and quoteUri/quoteCid are provided', async () => {
+			await expect(
+				createDraftOperation(
+					agent,
+					'Ambiguous post',
+					['en'],
+					'https://example.com',
+					'at://post/1',
+					'cid-abc',
+				),
+			).rejects.toThrow(
+				'A draft post can only have one embed type. Provide either an External URI or a Quote Post URI/CID, not both.',
+			);
+			expect(createDraft).not.toHaveBeenCalled();
+		});
+
+		it('should throw when externalUri is provided alongside a partial quote (only quoteUri)', async () => {
+			await expect(
+				createDraftOperation(
+					agent,
+					'Ambiguous post',
+					['en'],
+					'https://example.com',
+					'at://post/1',
+				),
+			).rejects.toThrow(
+				'A draft post can only have one embed type. Provide either an External URI or a Quote Post URI/CID, not both.',
+			);
+			expect(createDraft).not.toHaveBeenCalled();
 		});
 	});
 
@@ -167,7 +200,7 @@ describe('draftOperations', () => {
 	});
 
 	describe('publishDraftOperation', () => {
-		it('should publish the draft as a post and delete it', async () => {
+		it('should publish the draft as a post, delete it, and return the result', async () => {
 			const mockDraftView = {
 				id: 'draft-id-1',
 				draft: {
@@ -178,9 +211,11 @@ describe('draftOperations', () => {
 				updatedAt: '2025-01-02T00:00:00Z',
 			};
 			getDrafts.mockResolvedValue({ data: { drafts: [mockDraftView] } });
+			deleteDraft.mockResolvedValue({});
 
 			const result = await publishDraftOperation(agent, 'draft-id-1');
 
+			expect(post).toHaveBeenCalledTimes(1);
 			expect(post).toHaveBeenCalledWith(
 				expect.objectContaining({
 					text: 'Published text',
@@ -189,11 +224,82 @@ describe('draftOperations', () => {
 			);
 			expect(deleteDraft).toHaveBeenCalledWith({ id: 'draft-id-1' });
 			expect(result).toEqual([
-				{ json: { uri: 'at://test/post/1', cid: 'cid-1', draftId: 'draft-id-1' } },
+				{
+					json: {
+						uri: 'at://test/post/1',
+						cid: 'cid-1',
+						draftId: 'draft-id-1',
+						draftDeleted: true,
+					},
+				},
 			]);
 		});
 
-		it('should include an external embed when the draft has an external URI', async () => {
+		it('should publish all posts as a thread when the draft has multiple posts', async () => {
+			const mockDraftView = {
+				id: 'draft-id-thread',
+				draft: {
+					posts: [
+						{ $type: 'app.bsky.draft.defs#draftPost', text: 'Thread post 1' },
+						{ $type: 'app.bsky.draft.defs#draftPost', text: 'Thread post 2' },
+						{ $type: 'app.bsky.draft.defs#draftPost', text: 'Thread post 3' },
+					],
+					langs: ['en'],
+				},
+				createdAt: '2025-01-01T00:00:00Z',
+				updatedAt: '2025-01-02T00:00:00Z',
+			};
+			getDrafts.mockResolvedValue({ data: { drafts: [mockDraftView] } });
+			post
+				.mockResolvedValueOnce({ uri: 'at://test/post/1', cid: 'cid-1' })
+				.mockResolvedValueOnce({ uri: 'at://test/post/2', cid: 'cid-2' })
+				.mockResolvedValueOnce({ uri: 'at://test/post/3', cid: 'cid-3' });
+			deleteDraft.mockResolvedValue({});
+
+			const result = await publishDraftOperation(agent, 'draft-id-thread');
+
+			expect(post).toHaveBeenCalledTimes(3);
+
+			// First post has no reply
+			expect(post).toHaveBeenNthCalledWith(
+				1,
+				expect.not.objectContaining({ reply: expect.anything() }),
+			);
+
+			// Second post replies to the first
+			expect(post).toHaveBeenNthCalledWith(
+				2,
+				expect.objectContaining({
+					text: 'Thread post 2',
+					reply: {
+						root: { uri: 'at://test/post/1', cid: 'cid-1' },
+						parent: { uri: 'at://test/post/1', cid: 'cid-1' },
+					},
+				}),
+			);
+
+			// Third post: root is still the first, parent is the second
+			expect(post).toHaveBeenNthCalledWith(
+				3,
+				expect.objectContaining({
+					text: 'Thread post 3',
+					reply: {
+						root: { uri: 'at://test/post/1', cid: 'cid-1' },
+						parent: { uri: 'at://test/post/2', cid: 'cid-2' },
+					},
+				}),
+			);
+
+			expect(result).toHaveLength(3);
+			expect(result[0].json).toEqual(
+				expect.objectContaining({ uri: 'at://test/post/1', draftId: 'draft-id-thread' }),
+			);
+			expect(result[2].json).toEqual(
+				expect.objectContaining({ uri: 'at://test/post/3', draftId: 'draft-id-thread' }),
+			);
+		});
+
+		it('should include an external embed with URI as title when the draft has an external URI', async () => {
 			const mockDraftView = {
 				id: 'draft-id-2',
 				draft: {
@@ -212,6 +318,7 @@ describe('draftOperations', () => {
 				updatedAt: '2025-01-02T00:00:00Z',
 			};
 			getDrafts.mockResolvedValue({ data: { drafts: [mockDraftView] } });
+			deleteDraft.mockResolvedValue({});
 
 			await publishDraftOperation(agent, 'draft-id-2');
 
@@ -219,7 +326,11 @@ describe('draftOperations', () => {
 				expect.objectContaining({
 					embed: {
 						$type: 'app.bsky.embed.external',
-						external: { uri: 'https://example.com', title: '', description: '' },
+						external: {
+							uri: 'https://example.com',
+							title: 'https://example.com',
+							description: '',
+						},
 					},
 				}),
 			);
@@ -247,6 +358,7 @@ describe('draftOperations', () => {
 				updatedAt: '2025-01-02T00:00:00Z',
 			};
 			getDrafts.mockResolvedValue({ data: { drafts: [mockDraftView] } });
+			deleteDraft.mockResolvedValue({});
 
 			await publishDraftOperation(agent, 'draft-id-3');
 
@@ -281,6 +393,7 @@ describe('draftOperations', () => {
 			getDrafts
 				.mockResolvedValueOnce({ data: { drafts: [], cursor: 'next-page-cursor' } })
 				.mockResolvedValueOnce({ data: { drafts: [mockDraftView] } });
+			deleteDraft.mockResolvedValue({});
 
 			const result = await publishDraftOperation(agent, 'draft-id-page2');
 
@@ -288,6 +401,34 @@ describe('draftOperations', () => {
 			expect(getDrafts).toHaveBeenNthCalledWith(1, { limit: 100 });
 			expect(getDrafts).toHaveBeenNthCalledWith(2, { limit: 100, cursor: 'next-page-cursor' });
 			expect(result[0].json.draftId).toBe('draft-id-page2');
+		});
+
+		it('should return draftDeleted: false and log an error when draft deletion fails after posting', async () => {
+			const mockDraftView = {
+				id: 'draft-id-del-fail',
+				draft: {
+					posts: [{ $type: 'app.bsky.draft.defs#draftPost', text: 'Delete fail post' }],
+					langs: ['en'],
+				},
+				createdAt: '2025-01-01T00:00:00Z',
+				updatedAt: '2025-01-02T00:00:00Z',
+			};
+			getDrafts.mockResolvedValue({ data: { drafts: [mockDraftView] } });
+			deleteDraft.mockRejectedValue(new Error('Network error'));
+
+			const result = await publishDraftOperation(agent, 'draft-id-del-fail');
+
+			expect(post).toHaveBeenCalledTimes(1);
+			expect(result).toEqual([
+				expect.objectContaining({
+					json: expect.objectContaining({
+						uri: 'at://test/post/1',
+						cid: 'cid-1',
+						draftId: 'draft-id-del-fail',
+						draftDeleted: false,
+					}),
+				}),
+			]);
 		});
 	});
 });

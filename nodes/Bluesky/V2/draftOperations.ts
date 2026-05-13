@@ -166,6 +166,12 @@ function buildDraftPayload(
 	quoteUri?: string,
 	quoteCid?: string,
 ): AppBskyDraftDefs.Draft {
+	if (externalUri && (quoteUri || quoteCid)) {
+		throw new Error(
+			'A draft post can only have one embed type. Provide either an External URI or a Quote Post URI/CID, not both.',
+		);
+	}
+
 	const draftPost: AppBskyDraftDefs.DraftPost = {
 		$type: 'app.bsky.draft.defs#draftPost',
 		text: postText,
@@ -178,9 +184,7 @@ function buildDraftPayload(
 				uri: externalUri,
 			},
 		];
-	}
-
-	if (quoteUri && quoteCid) {
+	} else if (quoteUri && quoteCid) {
 		draftPost.embedRecords = [
 			{
 				$type: 'app.bsky.draft.defs#draftEmbedRecord',
@@ -290,57 +294,83 @@ export async function publishDraftOperation(
 		throw new Error(`Draft with ID '${draftId}' not found.`);
 	}
 
-	const firstPost = draftView.draft.posts[0];
-	if (!firstPost) {
+	const posts = draftView.draft.posts;
+	if (!posts || posts.length === 0) {
 		throw new Error(`Draft '${draftId}' contains no posts.`);
 	}
 
-	const rt = new RichText({ text: firstPost.text });
+	const langs = draftView.draft.langs ?? [];
+	const publishedPosts: Array<{ uri: string; cid: string }> = [];
+
+	for (let index = 0; index < posts.length; index++) {
+		const draftPost = posts[index];
+
+		const rt = new RichText({ text: draftPost.text });
+		try {
+			await rt.detectFacets(agent);
+		} catch (facetsErr: any) {
+			Logger.error(
+				`Failed to detect facets in draft post ${index}: ${facetsErr?.message || facetsErr}`,
+			);
+		}
+
+		const postData: any = {
+			text: rt.text || draftPost.text,
+			langs,
+			facets: rt.facets,
+		};
+
+		if (index > 0) {
+			const rootPost = publishedPosts[0];
+			const parentPost = publishedPosts[index - 1];
+			postData.reply = {
+				root: { uri: rootPost.uri, cid: rootPost.cid },
+				parent: { uri: parentPost.uri, cid: parentPost.cid },
+			};
+		}
+
+		const externalEmbed = draftPost.embedExternals?.[0];
+		const recordEmbed = draftPost.embedRecords?.[0];
+
+		if (recordEmbed) {
+			postData.embed = {
+				$type: 'app.bsky.embed.record',
+				record: {
+					uri: recordEmbed.record.uri,
+					cid: recordEmbed.record.cid,
+				},
+			};
+		} else if (externalEmbed) {
+			postData.embed = {
+				$type: 'app.bsky.embed.external',
+				external: {
+					uri: externalEmbed.uri,
+					title: externalEmbed.uri,
+					description: '',
+				},
+			};
+		}
+
+		const postResponse: { uri: string; cid: string } = await agent.post(postData);
+		publishedPosts.push(postResponse);
+	}
+
+	let draftDeleted = true;
 	try {
-		await rt.detectFacets(agent);
-	} catch (facetsErr: any) {
-		Logger.error(`Failed to detect facets in draft text: ${facetsErr?.message || facetsErr}`);
+		await agent.app.bsky.draft.deleteDraft({ id: draftId });
+	} catch (deleteErr: any) {
+		draftDeleted = false;
+		Logger.error(
+			`Failed to delete draft '${draftId}' after publishing: ${deleteErr?.message || deleteErr}`,
+		);
 	}
 
-	const postData: any = {
-		text: rt.text || firstPost.text,
-		langs: draftView.draft.langs ?? [],
-		facets: rt.facets,
-	};
-
-	const externalEmbed = firstPost.embedExternals?.[0];
-	const recordEmbed = firstPost.embedRecords?.[0];
-
-	if (recordEmbed) {
-		postData.embed = {
-			$type: 'app.bsky.embed.record',
-			record: {
-				uri: recordEmbed.record.uri,
-				cid: recordEmbed.record.cid,
-			},
-		};
-	} else if (externalEmbed) {
-		postData.embed = {
-			$type: 'app.bsky.embed.external',
-			external: {
-				uri: externalEmbed.uri,
-				title: '',
-				description: '',
-			},
-		};
-	}
-
-	const postResponse: { uri: string; cid: string } = await agent.post(postData);
-
-	await agent.app.bsky.draft.deleteDraft({ id: draftId });
-
-	return [
-		{
-			json: {
-				uri: postResponse.uri,
-				cid: postResponse.cid,
-				draftId,
-			},
+	return publishedPosts.map((postResponse) => ({
+		json: {
+			uri: postResponse.uri,
+			cid: postResponse.cid,
+			draftId,
+			draftDeleted,
 		},
-	];
+	}));
 }
