@@ -1,4 +1,4 @@
-import { AtpAgent } from '@atproto/api';
+import { AppBskyDraftDefs, AtpAgent } from '@atproto/api';
 import { IDataObject, INodeExecutionData, INodeProperties } from 'n8n-workflow';
 import { getLanguageOptions } from './languages';
 
@@ -57,14 +57,9 @@ export const draftProperties: INodeProperties[] = [
 	},
 	{
 		displayName: 'Post Text',
-		name: 'draftPostText',
+		name: 'postText',
 		type: 'string',
 		default: '',
-		required: true,
-		description: 'The text content of the draft post',
-		typeOptions: {
-			rows: 4,
-		},
 		displayOptions: {
 			show: {
 				resource: ['draft'],
@@ -74,7 +69,7 @@ export const draftProperties: INodeProperties[] = [
 	},
 	{
 		displayName: 'Language Names or IDs',
-		name: 'draftLangs',
+		name: 'langs',
 		type: 'multiOptions',
 		description:
 			'Choose from the list of supported languages. Choose from the list, or specify IDs using an <a href="https://docs.n8n.io/code-examples/expressions/">expression</a>.',
@@ -119,22 +114,28 @@ export const draftProperties: INodeProperties[] = [
 	},
 ];
 
-export async function createDraftOperation(
-	agent: AtpAgent,
+export function createSimpleDraftPayload(
 	postText: string,
 	langs: string[],
+): AppBskyDraftDefs.Draft {
+	return {
+		$type: 'app.bsky.draft.defs#draft',
+		posts: [
+			{
+				$type: 'app.bsky.draft.defs#draftPost',
+				text: postText,
+			},
+		],
+		langs,
+	};
+}
+
+export async function createDraftOperation(
+	agent: AtpAgent,
+	draft: AppBskyDraftDefs.Draft,
 ): Promise<INodeExecutionData[]> {
 	const response = await agent.app.bsky.draft.createDraft({
-		draft: {
-			$type: 'app.bsky.draft.defs#draft',
-			posts: [
-				{
-					$type: 'app.bsky.draft.defs#draftPost',
-					text: postText,
-				},
-			],
-			langs,
-		},
+		draft,
 	});
 
 	return [{ json: { id: response.data.id } }];
@@ -160,23 +161,13 @@ export async function getDraftsOperation(
 export async function updateDraftOperation(
 	agent: AtpAgent,
 	draftId: string,
-	postText: string,
-	langs: string[],
+	draft: AppBskyDraftDefs.Draft,
 ): Promise<INodeExecutionData[]> {
 	await agent.app.bsky.draft.updateDraft({
 		draft: {
 			$type: 'app.bsky.draft.defs#draftWithId',
 			id: draftId,
-			draft: {
-				$type: 'app.bsky.draft.defs#draft',
-				posts: [
-					{
-						$type: 'app.bsky.draft.defs#draftPost',
-						text: postText,
-					},
-				],
-				langs,
-			},
+			draft,
 		},
 	});
 

@@ -54,6 +54,7 @@ import {
 } from './listOperations';
 import { searchPostsOperation, searchProperties, searchUsersOperation } from './searchOperations';
 import {
+	createSimpleDraftPayload,
 	createDraftOperation,
 	deleteDraftOperation,
 	draftProperties,
@@ -590,12 +591,12 @@ export class BlueskyV2 implements INodeType {
 					}
 
 					case 'createDraft': {
+						const draftPayload = createSimpleDraftPayload(
+							this.getNodeParameter('postText', i, '') as string,
+							this.getNodeParameter('langs', i, ['en']) as string[],
+						);
 						returnData.push(
-							...(await createDraftOperation(
-								agent,
-								this.getNodeParameter('draftPostText', i) as string,
-								this.getNodeParameter('draftLangs', i) as string[],
-							)),
+							...(await createDraftOperation(agent, draftPayload)),
 						);
 						break;
 					}
@@ -613,12 +614,15 @@ export class BlueskyV2 implements INodeType {
 					}
 
 					case 'updateDraft': {
+						const draftPayload = createSimpleDraftPayload(
+							this.getNodeParameter('postText', i, '') as string,
+							this.getNodeParameter('langs', i, ['en']) as string[],
+						);
 						returnData.push(
 							...(await updateDraftOperation(
 								agent,
 								this.getNodeParameter('draftId', i) as string,
-								this.getNodeParameter('draftPostText', i) as string,
-								this.getNodeParameter('draftLangs', i) as string[],
+								draftPayload,
 							)),
 						);
 						break;

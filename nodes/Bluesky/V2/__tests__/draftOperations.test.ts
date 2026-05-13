@@ -1,4 +1,5 @@
 import {
+	createSimpleDraftPayload,
 	createDraftOperation,
 	deleteDraftOperation,
 	getDraftsOperation,
@@ -28,18 +29,25 @@ describe('draftOperations', () => {
 		} as unknown as AtpAgent;
 	});
 
+	describe('createSimpleDraftPayload', () => {
+		it('should create a draft payload from post-like inputs', () => {
+			expect(createSimpleDraftPayload('Draft text', ['en'])).toEqual({
+				$type: 'app.bsky.draft.defs#draft',
+				posts: [{ $type: 'app.bsky.draft.defs#draftPost', text: 'Draft text' }],
+				langs: ['en'],
+			});
+		});
+	});
+
 	describe('createDraftOperation', () => {
 		it('should create a draft and return its id', async () => {
 			createDraft.mockResolvedValue({ data: { id: 'draft-id-1' } });
 
-			const result = await createDraftOperation(agent, 'Hello draft', ['en']);
+			const draft = createSimpleDraftPayload('Hello draft', ['en']);
+			const result = await createDraftOperation(agent, draft);
 
 			expect(createDraft).toHaveBeenCalledWith({
-				draft: {
-					$type: 'app.bsky.draft.defs#draft',
-					posts: [{ $type: 'app.bsky.draft.defs#draftPost', text: 'Hello draft' }],
-					langs: ['en'],
-				},
+				draft,
 			});
 			expect(result).toEqual([{ json: { id: 'draft-id-1' } }]);
 		});
@@ -82,18 +90,15 @@ describe('draftOperations', () => {
 	describe('updateDraftOperation', () => {
 		it('should update a draft and return confirmation', async () => {
 			updateDraft.mockResolvedValue({});
+			const draft = createSimpleDraftPayload('Updated text', ['de']);
 
-			const result = await updateDraftOperation(agent, 'draft-id-1', 'Updated text', ['de']);
+			const result = await updateDraftOperation(agent, 'draft-id-1', draft);
 
 			expect(updateDraft).toHaveBeenCalledWith({
 				draft: {
 					$type: 'app.bsky.draft.defs#draftWithId',
 					id: 'draft-id-1',
-					draft: {
-						$type: 'app.bsky.draft.defs#draft',
-						posts: [{ $type: 'app.bsky.draft.defs#draftPost', text: 'Updated text' }],
-						langs: ['de'],
-					},
+					draft,
 				},
 			});
 			expect(result).toEqual([{ json: { id: 'draft-id-1', updated: true } }]);
@@ -110,4 +115,5 @@ describe('draftOperations', () => {
 			expect(result).toEqual([{ json: { id: 'draft-id-1', deleted: true } }]);
 		});
 	});
+
 });
