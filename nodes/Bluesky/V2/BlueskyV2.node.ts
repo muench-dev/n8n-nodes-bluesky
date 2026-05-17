@@ -58,6 +58,7 @@ import {
 	deleteDraftOperation,
 	draftProperties,
 	getDraftsOperation,
+	publishDraftOperation,
 	updateDraftOperation,
 } from './draftOperations';
 
@@ -593,8 +594,11 @@ export class BlueskyV2 implements INodeType {
 						returnData.push(
 							...(await createDraftOperation(
 								agent,
-								this.getNodeParameter('draftPostText', i) as string,
-								this.getNodeParameter('draftLangs', i) as string[],
+								this.getNodeParameter('postText', i, '') as string,
+								this.getNodeParameter('langs', i, ['en']) as string[],
+								(this.getNodeParameter('draftExternalUri', i, '') as string) || undefined,
+								(this.getNodeParameter('draftQuoteUri', i, '') as string) || undefined,
+								(this.getNodeParameter('draftQuoteCid', i, '') as string) || undefined,
 							)),
 						);
 						break;
@@ -617,8 +621,21 @@ export class BlueskyV2 implements INodeType {
 							...(await updateDraftOperation(
 								agent,
 								this.getNodeParameter('draftId', i) as string,
-								this.getNodeParameter('draftPostText', i) as string,
-								this.getNodeParameter('draftLangs', i) as string[],
+								this.getNodeParameter('postText', i, '') as string,
+								this.getNodeParameter('langs', i, ['en']) as string[],
+								(this.getNodeParameter('draftExternalUri', i, '') as string) || undefined,
+								(this.getNodeParameter('draftQuoteUri', i, '') as string) || undefined,
+								(this.getNodeParameter('draftQuoteCid', i, '') as string) || undefined,
+							)),
+						);
+						break;
+					}
+
+					case 'publishDraft': {
+						returnData.push(
+							...(await publishDraftOperation(
+								agent,
+								this.getNodeParameter('draftId', i) as string,
 							)),
 						);
 						break;
