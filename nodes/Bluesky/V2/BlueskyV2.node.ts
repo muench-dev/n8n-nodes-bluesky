@@ -238,10 +238,30 @@ export class BlueskyV2 implements INodeType {
 
 		Logger.info('Initializing Bluesky session', { ...nodeMeta, serviceOrigin: serviceUrl.origin });
 
+		let loginIdentifier = credentials.identifier;
+
+		// Pre-resolve custom domain handles to DIDs before login
+		if (loginIdentifier.includes('.') && !loginIdentifier.startsWith('did:')) {
+			try {
+				const tempSession = new CredentialSession(serviceUrl);
+				const tempAgent = new AtpAgent(tempSession);
+				Logger.info(`Attempting to resolve handle: ${loginIdentifier}`, { ...nodeMeta });
+				const resolveResult = await tempAgent.resolveHandle({ handle: loginIdentifier });
+				if (resolveResult.success && resolveResult.data.did) {
+					Logger.info(`Handle resolved: ${loginIdentifier} -> ${resolveResult.data.did}`, { ...nodeMeta });
+					loginIdentifier = resolveResult.data.did;
+				} else {
+					Logger.warn(`Failed to resolve handle ${loginIdentifier}, proceeding with original identifier`, { ...nodeMeta });
+				}
+			} catch (error) {
+				Logger.warn(`Error resolving handle ${loginIdentifier}: ${(error as Error).message}, proceeding with original identifier`, { ...nodeMeta });
+			}
+		}
+
 		const session = new CredentialSession(serviceUrl);
 		const agent = new AtpAgent(session);
 		await agent.login({
-			identifier: credentials.identifier,
+			identifier: loginIdentifier,
 			password: credentials.appPassword,
 		});
 
