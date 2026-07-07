@@ -1,4 +1,4 @@
-import { postOperation, quoteOperation, replyOperation } from '../postOperations';
+import { postOperation, quoteOperation, replyOperation, deleteLikeOperation } from '../postOperations';
 import ogs from 'open-graph-scraper';
 import { AtpAgent } from '@atproto/api';
 
@@ -195,5 +195,21 @@ describe('postOperation', () => {
 				},
 			}),
 		);
+	});
+});
+
+describe('deleteLikeOperation', () => {
+	let mockAgent: jest.Mocked<AtpAgent>;
+
+	beforeEach(() => {
+		mockAgent = {
+			deleteLike: jest.fn().mockResolvedValue(undefined),
+		} as any;
+	});
+
+	it('should call deleteLike with the provided uri and return the uri in the result', async () => {
+		const result = await deleteLikeOperation(mockAgent, 'at://like/uri');
+		expect(mockAgent.deleteLike).toHaveBeenCalledWith('at://like/uri');
+		expect(result).toEqual([{ json: { uri: 'at://like/uri' } }]);
 	});
 });
