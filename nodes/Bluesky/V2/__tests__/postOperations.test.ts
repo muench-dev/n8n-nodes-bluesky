@@ -1,4 +1,4 @@
-import { postOperation, quoteOperation, replyOperation } from '../postOperations';
+import { postOperation, quoteOperation, replyOperation, repostOperation } from '../postOperations';
 import ogs from 'open-graph-scraper';
 import { AtpAgent } from '@atproto/api';
 
@@ -195,5 +195,27 @@ describe('postOperation', () => {
 				},
 			}),
 		);
+	});
+
+	describe('repostOperation', () => {
+		it('should call agent.repost and return formatted data', async () => {
+			mockAgent.repost = jest.fn().mockResolvedValue({
+				uri: 'at://repost-uri',
+				cid: 'repost-cid',
+			});
+
+			const result = await repostOperation(mockAgent, 'at://target-uri', 'target-cid');
+
+			expect(mockAgent.repost).toHaveBeenCalledTimes(1);
+			expect(mockAgent.repost).toHaveBeenCalledWith('at://target-uri', 'target-cid');
+			expect(result).toEqual([
+				{
+					json: {
+						uri: 'at://repost-uri',
+						cid: 'repost-cid',
+					},
+				},
+			]);
+		});
 	});
 });
