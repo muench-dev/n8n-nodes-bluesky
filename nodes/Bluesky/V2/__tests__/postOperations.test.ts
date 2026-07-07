@@ -1,4 +1,10 @@
-import { deletePostOperation, postOperation, quoteOperation, replyOperation } from '../postOperations';
+import {
+	deletePostOperation,
+	deleteRepostOperation,
+	postOperation,
+	quoteOperation,
+	replyOperation,
+} from '../postOperations';
 import ogs from 'open-graph-scraper';
 import { AtpAgent } from '@atproto/api';
 
@@ -18,6 +24,7 @@ describe('postOperation', () => {
 			post: jest.fn().mockResolvedValue({ uri: 'test-uri', cid: 'test-cid' }),
 			uploadBlob: jest.fn().mockResolvedValue({ data: { blob: 'test-blob' } }),
 			deletePost: jest.fn().mockResolvedValue(undefined),
+			deleteRepost: jest.fn().mockResolvedValue(undefined),
 		} as any; // Using 'any' to simplify mock structure for methods not directly used by postOperation's core logic being tested
 	});
 
@@ -209,5 +216,24 @@ describe('postOperation', () => {
 				},
 			}),
 		);
+	});
+
+	describe('deleteRepostOperation', () => {
+		it('should call deleteRepost on agent and return expected data', async () => {
+			const uri = 'at://test-repost-uri';
+
+			const result = await deleteRepostOperation(mockAgent, uri);
+
+			expect(mockAgent.deleteRepost).toHaveBeenCalledTimes(1);
+			expect(mockAgent.deleteRepost).toHaveBeenCalledWith(uri);
+
+			expect(result).toEqual([
+				{
+					json: {
+						uri,
+					},
+				},
+			]);
+		});
 	});
 });
