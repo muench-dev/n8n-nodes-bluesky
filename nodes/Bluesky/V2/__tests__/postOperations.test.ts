@@ -1,4 +1,4 @@
-import { postOperation, quoteOperation, replyOperation } from '../postOperations';
+import { deletePostOperation, postOperation, quoteOperation, replyOperation } from '../postOperations';
 import ogs from 'open-graph-scraper';
 import { AtpAgent } from '@atproto/api';
 
@@ -17,6 +17,7 @@ describe('postOperation', () => {
 		mockAgent = {
 			post: jest.fn().mockResolvedValue({ uri: 'test-uri', cid: 'test-cid' }),
 			uploadBlob: jest.fn().mockResolvedValue({ data: { blob: 'test-blob' } }),
+			deletePost: jest.fn().mockResolvedValue(undefined),
 		} as any; // Using 'any' to simplify mock structure for methods not directly used by postOperation's core logic being tested
 	});
 
@@ -152,6 +153,19 @@ describe('postOperation', () => {
 				},
 			}),
 		);
+	});
+
+	it('should delete a post', async () => {
+		const result = await deletePostOperation(mockAgent, 'at://post/to/delete');
+
+		expect(mockAgent.deletePost).toHaveBeenCalledWith('at://post/to/delete');
+		expect(result).toEqual([
+			{
+				json: {
+					uri: 'at://post/to/delete',
+				},
+			},
+		]);
 	});
 
 	it('should create a reply with root and parent refs', async () => {
